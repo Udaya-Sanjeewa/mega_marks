@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import AdminNav from '@/components/AdminNav'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Battery, Car, Wrench, TrendingUp } from 'lucide-react'
+import { Battery, Car, Wrench, TrendingUp, FileText } from 'lucide-react'
 
 export default function AdminDashboard() {
   const { user, loading } = useAuth()
@@ -16,6 +16,8 @@ export default function AdminDashboard() {
     batteries: 0,
     vehicles: 0,
     parts: 0,
+    vehicleListings: 0,
+    pendingListings: 0,
   })
 
   useEffect(() => {
@@ -31,16 +33,20 @@ export default function AdminDashboard() {
   }, [user])
 
   const fetchStats = async () => {
-    const [batteries, vehicles, parts] = await Promise.all([
+    const [batteries, vehicles, parts, vehicleListings, pendingListings] = await Promise.all([
       supabase.from('batteries').select('*', { count: 'exact', head: true }),
       supabase.from('vehicles').select('*', { count: 'exact', head: true }),
       supabase.from('parts').select('*', { count: 'exact', head: true }),
+      supabase.from('vehicle_listings').select('*', { count: 'exact', head: true }),
+      supabase.from('vehicle_listings').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
     ])
 
     setStats({
       batteries: batteries.count || 0,
       vehicles: vehicles.count || 0,
       parts: parts.count || 0,
+      vehicleListings: vehicleListings.count || 0,
+      pendingListings: pendingListings.count || 0,
     })
   }
 
@@ -75,10 +81,11 @@ export default function AdminDashboard() {
       href: '/admin/dashboard/parts',
     },
     {
-      title: 'Total Products',
-      value: stats.batteries + stats.vehicles + stats.parts,
-      icon: TrendingUp,
+      title: 'Pending Listings',
+      value: stats.pendingListings,
+      icon: FileText,
       color: 'bg-orange-600',
+      href: '/admin/dashboard/vehicle-listings',
     },
   ]
 
@@ -104,6 +111,7 @@ export default function AdminDashboard() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: index * 0.1 }}
+                    onClick={() => card.href && router.push(card.href)}
                   >
                     <Card className="hover:shadow-lg transition-shadow cursor-pointer">
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -123,11 +131,12 @@ export default function AdminDashboard() {
               })}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
               {[
                 { title: 'Manage Batteries', icon: Battery, href: '/admin/dashboard/batteries', color: 'bg-green-600' },
                 { title: 'Manage Vehicles', icon: Car, href: '/admin/dashboard/vehicles', color: 'bg-blue-600' },
                 { title: 'Manage Parts', icon: Wrench, href: '/admin/dashboard/parts', color: 'bg-gray-700' },
+                { title: 'Listing Requests', icon: FileText, href: '/admin/dashboard/vehicle-listings', color: 'bg-orange-600' },
               ].map((item, index) => {
                 const Icon = item.icon
                 return (
