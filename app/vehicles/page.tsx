@@ -145,9 +145,22 @@ export default function VehiclesPage() {
           >
             <Car className="h-16 w-16 mx-auto mb-4 text-blue-400" />
             <h1 className="text-4xl md:text-5xl font-bold mb-6">Nissan Leaf Vehicles</h1>
-            <p className="text-xl text-gray-200 max-w-3xl mx-auto">
+            <p className="text-xl text-gray-200 max-w-3xl mx-auto mb-6">
               Quality certified and pre-owned Nissan Leaf electric vehicles ready for the road
             </p>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+            >
+              <Button
+                size="lg"
+                onClick={() => router.push('/sell-vehicle')}
+                className="bg-green-600 hover:bg-green-700 text-white font-semibold px-8"
+              >
+                Sell Your Vehicle with Mega Marks
+              </Button>
+            </motion.div>
           </motion.div>
         </div>
       </section>
