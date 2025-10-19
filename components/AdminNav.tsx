@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
-import { Battery, Car, Wrench, LogOut, LayoutDashboard, Zap, MessageSquare } from 'lucide-react'
+import { Battery, Car, Wrench, LogOut, LayoutDashboard, Zap, MessageSquare, FileText } from 'lucide-react'
 
 export default function AdminNav() {
   const pathname = usePathname()
@@ -15,6 +15,7 @@ export default function AdminNav() {
     { href: '/admin/dashboard/batteries', label: 'Batteries', icon: Battery },
     { href: '/admin/dashboard/vehicles', label: 'Vehicles', icon: Car },
     { href: '/admin/dashboard/parts', label: 'Parts', icon: Wrench },
+    { href: '/admin/dashboard/vehicle-listings', label: 'Listing Requests', icon: FileText },
     { href: '/admin/dashboard/reviews', label: 'Reviews', icon: MessageSquare },
   ]
 
