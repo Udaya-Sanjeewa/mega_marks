@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import { supabase, Part, PartReview } from '@/lib/supabase'
@@ -8,15 +9,48 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Wrench, Search, Package, Star, CheckCircle2 } from 'lucide-react'
+import { Wrench, Search, Package, Star, CheckCircle2, Share2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 export default function PartsPage() {
+  const router = useRouter()
   const [parts, setParts] = useState<Part[]>([])
   const [filteredParts, setFilteredParts] = useState<Part[]>([])
   const [reviews, setReviews] = useState<PartReview[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
+
+  const handleShare = async (e: React.MouseEvent, part: Part) => {
+    e.stopPropagation()
+
+    const fullUrl = `${window.location.origin}/parts/detail?id=${part.id}`
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: part.name,
+          text: `Check out ${part.name} - LKR ${part.price.toLocaleString()}`,
+          url: fullUrl,
+        })
+        toast.success('Shared successfully!')
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          copyToClipboard(fullUrl)
+        }
+      }
+    } else {
+      copyToClipboard(fullUrl)
+    }
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success('Link copied to clipboard!')
+    }).catch(() => {
+      toast.error('Failed to copy link')
+    })
+  }
 
   useEffect(() => {
     async function fetchData() {
@@ -167,6 +201,8 @@ export default function PartsPage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: index * 0.05 }}
+                    className="cursor-pointer"
+                    onClick={() => router.push(`/parts/detail?id=${part.id}`)}
                   >
                     <Card className="overflow-hidden hover:shadow-xl transition-shadow duration-300 h-full">
                       <div className="relative h-48 w-full bg-gray-100">
@@ -176,15 +212,23 @@ export default function PartsPage() {
                           fill
                           className="object-cover"
                         />
+                        <div className="absolute top-3 left-3 flex flex-col gap-2">
+                          <Button
+                            size="icon"
+                            variant="secondary"
+                            className="h-8 w-8 bg-white/90 hover:bg-white"
+                            onClick={(e) => handleShare(e, part)}
+                          >
+                            <Share2 className="h-4 w-4" />
+                          </Button>
+                          <Badge variant="secondary">{part.category}</Badge>
+                        </div>
                         <div className="absolute top-3 right-3">
                           {part.in_stock ? (
                             <Badge className="bg-green-600">In Stock</Badge>
                           ) : (
                             <Badge variant="destructive">Out of Stock</Badge>
                           )}
-                        </div>
-                        <div className="absolute top-3 left-3">
-                          <Badge variant="secondary">{part.category}</Badge>
                         </div>
                       </div>
                       <CardContent className="p-4">

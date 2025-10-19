@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import { supabase, Battery, BatteryReview } from '@/lib/supabase'
@@ -8,14 +9,47 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Battery as BatteryIcon, Shield, Zap, CheckCircle2, Gauge, Star, Search } from 'lucide-react'
+import { Battery as BatteryIcon, Shield, Zap, CheckCircle2, Gauge, Star, Search, Share2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 export default function BatteriesPage() {
+  const router = useRouter()
   const [batteries, setBatteries] = useState<Battery[]>([])
   const [filteredBatteries, setFilteredBatteries] = useState<Battery[]>([])
   const [reviews, setReviews] = useState<BatteryReview[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+
+  const handleShare = async (e: React.MouseEvent, battery: Battery) => {
+    e.stopPropagation()
+
+    const fullUrl = `${window.location.origin}/batteries/detail?id=${battery.id}`
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: battery.name,
+          text: `Check out ${battery.name} - LKR ${battery.price.toLocaleString()}`,
+          url: fullUrl,
+        })
+        toast.success('Shared successfully!')
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          copyToClipboard(fullUrl)
+        }
+      }
+    } else {
+      copyToClipboard(fullUrl)
+    }
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success('Link copied to clipboard!')
+    }).catch(() => {
+      toast.error('Failed to copy link')
+    })
+  }
 
   useEffect(() => {
     async function fetchData() {
@@ -163,6 +197,8 @@ export default function BatteriesPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
+                  className="cursor-pointer"
+                  onClick={() => router.push(`/batteries/detail?id=${battery.id}`)}
                 >
                   <Card className="overflow-hidden hover:shadow-2xl transition-shadow duration-300 h-full">
                     <div className="relative h-64 w-full bg-gray-100">
@@ -172,6 +208,16 @@ export default function BatteriesPage() {
                         fill
                         className="object-cover"
                       />
+                      <div className="absolute top-4 left-4">
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          className="h-8 w-8 bg-white/90 hover:bg-white"
+                          onClick={(e) => handleShare(e, battery)}
+                        >
+                          <Share2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                       {battery.in_stock && (
                         <div className="absolute top-4 right-4">
                           <Badge className="bg-green-600 text-white">In Stock</Badge>

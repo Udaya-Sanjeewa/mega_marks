@@ -4,6 +4,9 @@ import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Share2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 type ProductCardProps = {
   title: string
@@ -13,6 +16,7 @@ type ProductCardProps = {
   details?: string[]
   inStock?: boolean
   index?: number
+  shareUrl?: string
 }
 
 export default function ProductCard({
@@ -22,8 +26,46 @@ export default function ProductCard({
   badge,
   details = [],
   inStock = true,
-  index = 0
+  index = 0,
+  shareUrl
 }: ProductCardProps) {
+  const handleShare = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (!shareUrl) {
+      toast.error('Share URL not available')
+      return
+    }
+
+    const fullUrl = `${window.location.origin}${shareUrl}`
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: title,
+          text: `Check out ${title} - LKR ${price.toLocaleString()}`,
+          url: fullUrl,
+        })
+        toast.success('Shared successfully!')
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          copyToClipboard(fullUrl)
+        }
+      }
+    } else {
+      copyToClipboard(fullUrl)
+    }
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success('Link copied to clipboard!')
+    }).catch(() => {
+      toast.error('Failed to copy link')
+    })
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -47,6 +89,18 @@ export default function ProductCard({
           {badge && (
             <div className="absolute top-2 right-2">
               <Badge className="bg-green-600">{badge}</Badge>
+            </div>
+          )}
+          {shareUrl && (
+            <div className="absolute top-2 left-2">
+              <Button
+                size="icon"
+                variant="secondary"
+                className="h-8 w-8 bg-white/90 hover:bg-white"
+                onClick={handleShare}
+              >
+                <Share2 className="h-4 w-4" />
+              </Button>
             </div>
           )}
           {!inStock && (

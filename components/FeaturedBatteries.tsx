@@ -76,7 +76,7 @@ export default function FeaturedBatteries() {
         transition={{ duration: 0.5 }}
         className="h-full flex flex-col"
       >
-        <Card className="overflow-hidden flex-1 flex flex-col min-h-[380px]">
+        <Card className="overflow-hidden flex-1 flex flex-col min-h-[380px] bg-gray-800/50 backdrop-blur-sm border-2 border-green-500/20">
           <div className="relative h-48 w-full bg-gray-100 flex-shrink-0">
             <Image
               src={battery.image_url || 'https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg'}
@@ -91,13 +91,13 @@ export default function FeaturedBatteries() {
             )}
           </div>
           <CardContent className="p-4 flex-1 flex flex-col">
-            <h3 className="font-bold text-lg mb-2 line-clamp-1">{battery.name}</h3>
+            <h3 className="font-bold text-lg mb-2 line-clamp-1 text-white">{battery.name}</h3>
             <div className="flex items-center gap-2 mb-2">
-              <Badge variant="outline">{battery.capacity}</Badge>
-              <Badge variant="outline">{battery.brand}</Badge>
+              <Badge variant="outline" className="border-green-500/50 text-green-300">{battery.capacity}</Badge>
+              <Badge variant="outline" className="border-green-500/50 text-green-300">{battery.brand}</Badge>
             </div>
-            <p className="text-sm text-gray-600 mb-3 line-clamp-2 flex-1">{battery.description}</p>
-            <p className="text-2xl font-bold text-green-600">
+            <p className="text-sm text-gray-300 mb-3 line-clamp-2 flex-1">{battery.description}</p>
+            <p className="text-2xl font-bold text-green-400">
               LKR {battery.price.toLocaleString()}
             </p>
           </CardContent>

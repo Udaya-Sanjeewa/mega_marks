@@ -9,7 +9,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Car, Gauge, Battery, Calendar, CheckCircle2, Star, Search } from 'lucide-react'
+import { Car, Gauge, Battery, Calendar, CheckCircle2, Star, Search, Share2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 export default function VehiclesPage() {
   const router = useRouter()
@@ -19,6 +20,37 @@ export default function VehiclesPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
+
+  const handleShare = async (e: React.MouseEvent, vehicle: Vehicle) => {
+    e.stopPropagation()
+
+    const fullUrl = `${window.location.origin}/vehicles/detail?id=${vehicle.id}`
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: vehicle.model,
+          text: `Check out ${vehicle.model} (${vehicle.year}) - LKR ${vehicle.price.toLocaleString()}`,
+          url: fullUrl,
+        })
+        toast.success('Shared successfully!')
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          copyToClipboard(fullUrl)
+        }
+      }
+    } else {
+      copyToClipboard(fullUrl)
+    }
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success('Link copied to clipboard!')
+    }).catch(() => {
+      toast.error('Failed to copy link')
+    })
+  }
 
   useEffect(() => {
     async function fetchData() {
@@ -204,6 +236,16 @@ export default function VehiclesPage() {
                         fill
                         className={`object-cover ${!vehicle.available ? 'grayscale' : ''}`}
                       />
+                      <div className="absolute top-4 left-4">
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          className="h-8 w-8 bg-white/90 hover:bg-white"
+                          onClick={(e) => handleShare(e, vehicle)}
+                        >
+                          <Share2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                       {!vehicle.available && (
                         <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
                           <Badge className="bg-red-600 text-white text-lg px-6 py-2">SOLD</Badge>

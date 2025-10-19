@@ -76,7 +76,7 @@ export default function FeaturedParts() {
         transition={{ duration: 0.5 }}
         className="h-full flex flex-col"
       >
-        <Card className="overflow-hidden flex-1 flex flex-col min-h-[380px]">
+        <Card className="overflow-hidden flex-1 flex flex-col min-h-[380px] bg-gray-800/50 backdrop-blur-sm border-2 border-green-500/20">
           <div className="relative h-48 w-full bg-gray-100 flex-shrink-0">
             <Image
               src={part.image_url || 'https://images.pexels.com/photos/3807277/pexels-photo-3807277.jpeg'}
@@ -91,10 +91,10 @@ export default function FeaturedParts() {
             )}
           </div>
           <CardContent className="p-4 flex-1 flex flex-col">
-            <h3 className="font-bold text-lg mb-2 line-clamp-1">{part.name}</h3>
-            <Badge variant="outline" className="mb-2">{part.category}</Badge>
-            <p className="text-sm text-gray-600 mb-3 line-clamp-2 flex-1">{part.description}</p>
-            <p className="text-2xl font-bold text-gray-900">
+            <h3 className="font-bold text-lg mb-2 line-clamp-1 text-white">{part.name}</h3>
+            <Badge variant="outline" className="mb-2 border-green-500/50 text-green-300">{part.category}</Badge>
+            <p className="text-sm text-gray-300 mb-3 line-clamp-2 flex-1">{part.description}</p>
+            <p className="text-2xl font-bold text-green-400">
               LKR {part.price.toLocaleString()}
             </p>
           </CardContent>

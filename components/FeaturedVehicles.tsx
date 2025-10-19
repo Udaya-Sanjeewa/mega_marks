@@ -76,7 +76,7 @@ export default function FeaturedVehicles() {
         transition={{ duration: 0.5 }}
         className="h-full flex flex-col"
       >
-        <Card className="overflow-hidden flex-1 flex flex-col min-h-[380px]">
+        <Card className="overflow-hidden flex-1 flex flex-col min-h-[380px] bg-gray-800/50 backdrop-blur-sm border-2 border-green-500/20">
           <div className="relative h-48 w-full bg-gray-100 flex-shrink-0">
             <Image
               src={vehicle.image_url || 'https://images.pexels.com/photos/110844/pexels-photo-110844.jpeg'}
@@ -91,16 +91,16 @@ export default function FeaturedVehicles() {
             )}
           </div>
           <CardContent className="p-4 flex-1 flex flex-col">
-            <h3 className="font-bold text-lg mb-2 line-clamp-1">{vehicle.model}</h3>
+            <h3 className="font-bold text-lg mb-2 line-clamp-1 text-white">{vehicle.model}</h3>
             <div className="flex items-center gap-2 mb-2">
-              <Badge variant="outline">{vehicle.year}</Badge>
-              <Badge variant="outline">{vehicle.battery_capacity}</Badge>
+              <Badge variant="outline" className="border-green-500/50 text-green-300">{vehicle.year}</Badge>
+              <Badge variant="outline" className="border-green-500/50 text-green-300">{vehicle.battery_capacity}</Badge>
             </div>
             <div className="flex-1">
-              <p className="text-sm text-gray-600 mb-1">{vehicle.condition}</p>
-              <p className="text-sm text-gray-600 mb-3">{vehicle.mileage.toLocaleString()} km</p>
+              <p className="text-sm text-gray-300 mb-1">{vehicle.condition}</p>
+              <p className="text-sm text-gray-300 mb-3">{vehicle.mileage.toLocaleString()} km</p>
             </div>
-            <p className="text-2xl font-bold text-blue-600">
+            <p className="text-2xl font-bold text-green-400">
               LKR {vehicle.price.toLocaleString()}
             </p>
           </CardContent>
