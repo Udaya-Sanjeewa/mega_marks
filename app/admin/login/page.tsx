@@ -22,7 +22,7 @@ export default function AdminLoginPage() {
 
   useEffect(() => {
     if (user) {
-      router.push('/admin/dashboard')
+      router.replace('/admin/dashboard')
     }
   }, [user, router])
 
@@ -30,21 +30,32 @@ export default function AdminLoginPage() {
     e.preventDefault()
     setLoading(true)
 
-    const { error } = await signIn(email, password)
+    try {
+      const { error } = await signIn(email, password)
 
-    if (error) {
+      if (error) {
+        toast({
+          title: 'Login Failed',
+          description: error.message || 'Invalid email or password',
+          variant: 'destructive',
+        })
+        setLoading(false)
+      } else {
+        toast({
+          title: 'Success',
+          description: 'Logged in successfully',
+        })
+        setTimeout(() => {
+          router.replace('/admin/dashboard')
+        }, 100)
+      }
+    } catch (error) {
       toast({
-        title: 'Login Failed',
-        description: error.message || 'Invalid email or password',
+        title: 'Error',
+        description: 'An unexpected error occurred',
         variant: 'destructive',
       })
       setLoading(false)
-    } else {
-      toast({
-        title: 'Success',
-        description: 'Logged in successfully',
-      })
-      router.push('/admin/dashboard')
     }
   }
 

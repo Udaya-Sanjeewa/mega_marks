@@ -16,13 +16,12 @@ export default function AdminDashboard() {
     batteries: 0,
     vehicles: 0,
     parts: 0,
-    vehicleListings: 0,
-    pendingListings: 0,
+    reviews: 0,
   })
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/admin/login')
+      router.replace('/admin/login')
     }
   }, [user, loading, router])
 
@@ -33,20 +32,18 @@ export default function AdminDashboard() {
   }, [user])
 
   const fetchStats = async () => {
-    const [batteries, vehicles, parts, vehicleListings, pendingListings] = await Promise.all([
+    const [batteries, vehicles, parts, reviews] = await Promise.all([
       supabase.from('batteries').select('*', { count: 'exact', head: true }),
       supabase.from('vehicles').select('*', { count: 'exact', head: true }),
       supabase.from('parts').select('*', { count: 'exact', head: true }),
-      supabase.from('vehicle_listings').select('*', { count: 'exact', head: true }),
-      supabase.from('vehicle_listings').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('home_reviews').select('*', { count: 'exact', head: true }),
     ])
 
     setStats({
       batteries: batteries.count || 0,
       vehicles: vehicles.count || 0,
       parts: parts.count || 0,
-      vehicleListings: vehicleListings.count || 0,
-      pendingListings: pendingListings.count || 0,
+      reviews: reviews.count || 0,
     })
   }
 
@@ -81,11 +78,11 @@ export default function AdminDashboard() {
       href: '/admin/dashboard/parts',
     },
     {
-      title: 'Pending Listings',
-      value: stats.pendingListings,
+      title: 'Total Reviews',
+      value: stats.reviews,
       icon: FileText,
       color: 'bg-orange-600',
-      href: '/admin/dashboard/vehicle-listings',
+      href: '/admin/dashboard/reviews',
     },
   ]
 
@@ -136,7 +133,7 @@ export default function AdminDashboard() {
                 { title: 'Manage Batteries', icon: Battery, href: '/admin/dashboard/batteries', color: 'bg-green-600' },
                 { title: 'Manage Vehicles', icon: Car, href: '/admin/dashboard/vehicles', color: 'bg-blue-600' },
                 { title: 'Manage Parts', icon: Wrench, href: '/admin/dashboard/parts', color: 'bg-gray-700' },
-                { title: 'Listing Requests', icon: FileText, href: '/admin/dashboard/vehicle-listings', color: 'bg-orange-600' },
+                { title: 'Manage Reviews', icon: FileText, href: '/admin/dashboard/reviews', color: 'bg-orange-600' },
               ].map((item, index) => {
                 const Icon = item.icon
                 return (
