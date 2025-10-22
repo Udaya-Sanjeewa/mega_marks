@@ -51,6 +51,7 @@ export default function AdminLoginPage() {
           .maybeSingle()
 
         if (!adminUser && !checkError) {
+          console.log('Admin user not found in admin_users table, creating record...')
           const { error: insertError } = await supabase
             .from('admin_users')
             .insert([
@@ -60,12 +61,26 @@ export default function AdminLoginPage() {
                 full_name: email.split('@')[0],
                 role: 'admin',
                 is_active: true,
+                last_login: new Date().toISOString(),
               }
             ])
 
           if (insertError) {
             console.error('Error creating admin user record:', insertError)
+            toast({
+              title: 'Warning',
+              description: 'Logged in but could not create admin record. Please contact support.',
+              variant: 'destructive',
+            })
+          } else {
+            console.log('Admin user record created successfully')
           }
+        } else {
+          console.log('Admin user already exists in admin_users table')
+          await supabase
+            .from('admin_users')
+            .update({ last_login: new Date().toISOString() })
+            .eq('id', userId)
         }
 
         toast({
