@@ -172,7 +172,7 @@ export default function Navbar() {
                   >
                     <Button
                       size="sm"
-                      className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white border-0 shadow-md shadow-green-500/50 relative overflow-hidden group"
+                      className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white border-0 shadow-md shadow-blue-500/50 relative overflow-hidden group mr-2"
                     >
                       <User className="h-4 w-4 mr-2 relative z-10" />
                       <span className="relative z-10">{customerName}</span>
@@ -202,7 +202,7 @@ export default function Navbar() {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Link href="/login">
+              <Link href="/customer/login">
                 <motion.div
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
@@ -212,10 +212,10 @@ export default function Navbar() {
                 >
                   <Button
                     size="sm"
-                    className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white border-0 shadow-md shadow-green-500/50 relative overflow-hidden group"
+                    className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white border-0 shadow-md shadow-blue-500/50 relative overflow-hidden group mr-2"
                   >
                     <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-teal-400 to-green-400 opacity-0 group-hover:opacity-30"
+                      className="absolute inset-0 bg-gradient-to-r from-cyan-400 to-blue-400 opacity-0 group-hover:opacity-30"
                       animate={{
                         x: ['-100%', '100%'],
                       }}
@@ -231,6 +231,34 @@ export default function Navbar() {
                 </motion.div>
               </Link>
             )}
+            <Link href="/admin/login">
+              <motion.div
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: navLinks.length * 0.1 + 0.05 }}
+              >
+                <Button
+                  size="sm"
+                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white border-0 shadow-md shadow-green-500/50 relative overflow-hidden group"
+                >
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-r from-teal-400 to-green-400 opacity-0 group-hover:opacity-30"
+                    animate={{
+                      x: ['-100%', '100%'],
+                    }}
+                    transition={{
+                      duration: 1.5,
+                      repeat: Infinity,
+                      ease: 'linear',
+                    }}
+                  />
+                  <Shield className="h-4 w-4 mr-2 relative z-10" />
+                  <span className="relative z-10">Admin</span>
+                </Button>
+              </motion.div>
+            </Link>
           </div>
 
           <div className="md:hidden">
@@ -279,38 +307,34 @@ export default function Navbar() {
                 </motion.div>
               </Link>
             ))}
-            {!user ? (
-              <Link href="/login">
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: navLinks.length * 0.05 }}
-                  className="block px-3 py-2 rounded-md font-medium relative overflow-hidden"
-                  onClick={() => setIsOpen(false)}
-                >
-                  <div className="flex items-center text-white bg-gradient-to-r from-green-600 to-emerald-600 p-2 rounded-md shadow-lg shadow-green-500/30">
-                    <User className="h-4 w-4 mr-2" />
-                    Login
-                  </div>
-                </motion.div>
-              </Link>
-            ) : (
+            <Link href="/customer/login">
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: navLinks.length * 0.05 }}
                 className="block px-3 py-2 rounded-md font-medium relative overflow-hidden"
-                onClick={() => {
-                  handleLogout()
-                  setIsOpen(false)
-                }}
+                onClick={() => setIsOpen(false)}
               >
-                <div className="flex items-center text-white bg-gradient-to-r from-red-600 to-rose-600 p-2 rounded-md shadow-lg shadow-red-500/30 cursor-pointer">
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
+                <div className="flex items-center text-white bg-gradient-to-r from-blue-600 to-cyan-600 p-2 rounded-md shadow-lg shadow-blue-500/30">
+                  <User className="h-4 w-4 mr-2" />
+                  Customer Login
                 </div>
               </motion.div>
-            )}
+            </Link>
+            <Link href="/admin/login">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: navLinks.length * 0.05 + 0.05 }}
+                className="block px-3 py-2 rounded-md font-medium relative overflow-hidden"
+                onClick={() => setIsOpen(false)}
+              >
+                <div className="flex items-center text-white bg-gradient-to-r from-green-600 to-emerald-600 p-2 rounded-md shadow-lg shadow-green-500/30">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Admin Login
+                </div>
+              </motion.div>
+            </Link>
           </div>
         </motion.div>
       )}
