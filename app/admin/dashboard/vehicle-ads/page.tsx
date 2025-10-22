@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
-import { uploadImage, deleteImage } from '@/lib/storage'
+import { uploadImage } from '@/lib/storage'
 import AdminNav from '@/components/AdminNav'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -25,7 +25,6 @@ import {
   Loader2,
   Eye,
   Edit,
-  Trash2,
   Upload,
   X,
 } from 'lucide-react'
@@ -72,14 +71,12 @@ export default function VehicleAdsPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const [ads, setAds] = useState<VehicleAd[]>([])
-  const [publishedVehicles, setPublishedVehicles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [selectedAd, setSelectedAd] = useState<VehicleAd | null>(null)
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingAd, setEditingAd] = useState<VehicleAd | null>(null)
-  const [editingPublished, setEditingPublished] = useState<any | null>(null)
   const [imageFiles, setImageFiles] = useState<File[]>([])
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
   const [existingImages, setExistingImages] = useState<string[]>([])
@@ -106,7 +103,6 @@ export default function VehicleAdsPage() {
   useEffect(() => {
     if (user) {
       fetchAds()
-      fetchPublishedVehicles()
     }
   }, [user])
 
@@ -146,24 +142,8 @@ export default function VehicleAdsPage() {
     }
   }
 
-  const fetchPublishedVehicles = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('vehicles')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (!error && data) {
-        setPublishedVehicles(data)
-      }
-    } catch (error) {
-      console.error('Error fetching published vehicles:', error)
-    }
-  }
-
   const handleEditAd = (ad: VehicleAd) => {
     setEditingAd(ad)
-    setEditingPublished(null)
     setFormData({
       make: ad.make,
       model: ad.model,
@@ -177,33 +157,6 @@ export default function VehicleAdsPage() {
       features: ad.features?.join(', ') || '',
     })
     setExistingImages(ad.images || [])
-    setImageFiles([])
-    setImagePreviews([])
-    setEditDialogOpen(true)
-  }
-
-  const handleEditPublished = (vehicle: any) => {
-    setEditingPublished(vehicle)
-    setEditingAd(null)
-
-    // Parse model name if it contains make
-    const modelParts = vehicle.model.split(' ')
-    const possibleMake = modelParts.length > 1 ? modelParts[0] : ''
-    const modelName = modelParts.length > 1 ? modelParts.slice(1).join(' ') : vehicle.model
-
-    setFormData({
-      make: possibleMake,
-      model: modelName,
-      year: vehicle.year,
-      price: vehicle.price,
-      mileage: vehicle.mileage,
-      battery_capacity: vehicle.battery_capacity,
-      condition: vehicle.condition,
-      color: vehicle.color || '',
-      description: '',
-      features: vehicle.features?.join(', ') || '',
-    })
-    setExistingImages(vehicle.images || (vehicle.image_url ? [vehicle.image_url] : []))
     setImageFiles([])
     setImagePreviews([])
     setEditDialogOpen(true)
@@ -246,7 +199,7 @@ export default function VehicleAdsPage() {
   }
 
   const handleSaveEdit = async () => {
-    if (!editingAd && !editingPublished) return
+    if (!editingAd) return
 
     setUploading(true)
     try {
@@ -264,54 +217,29 @@ export default function VehicleAdsPage() {
         ? formData.features.split(',').map((f) => f.trim()).filter(Boolean)
         : []
 
-      if (editingAd) {
-        // Update customer ad
-        const { error } = await supabase
-          .from('customer_vehicle_ads')
-          .update({
-            make: formData.make,
-            model: formData.model,
-            year: formData.year,
-            price: formData.price,
-            mileage: formData.mileage,
-            battery_capacity: formData.battery_capacity,
-            condition: formData.condition,
-            color: formData.color,
-            description: formData.description,
-            features: featuresArray,
-            images: allImages,
-          })
-          .eq('id', editingAd.id)
+      const { error } = await supabase
+        .from('customer_vehicle_ads')
+        .update({
+          make: formData.make,
+          model: formData.model,
+          year: formData.year,
+          price: formData.price,
+          mileage: formData.mileage,
+          battery_capacity: formData.battery_capacity,
+          condition: formData.condition,
+          color: formData.color,
+          description: formData.description,
+          features: featuresArray,
+          images: allImages,
+        })
+        .eq('id', editingAd.id)
 
-        if (error) throw error
-        toast.success('Vehicle ad updated successfully')
-      } else if (editingPublished) {
-        // Update published vehicle
-        const fullModelName = `${formData.make} ${formData.model}`.trim()
-        const { error } = await supabase
-          .from('vehicles')
-          .update({
-            model: fullModelName,
-            year: formData.year,
-            price: formData.price,
-            mileage: formData.mileage,
-            battery_capacity: formData.battery_capacity,
-            condition: formData.condition,
-            color: formData.color,
-            image_url: allImages[0] || null,
-            images: allImages,
-            features: featuresArray,
-          })
-          .eq('id', editingPublished.id)
-
-        if (error) throw error
-        toast.success('Published vehicle updated successfully')
-      }
+      if (error) throw error
+      toast.success('Vehicle ad updated successfully')
 
       setEditDialogOpen(false)
       resetEditForm()
       fetchAds()
-      fetchPublishedVehicles()
     } catch (error: any) {
       console.error('Error saving:', error)
       toast.error(error.message || 'Failed to save changes')
@@ -322,7 +250,6 @@ export default function VehicleAdsPage() {
 
   const resetEditForm = () => {
     setEditingAd(null)
-    setEditingPublished(null)
     setImageFiles([])
     setImagePreviews([])
     setExistingImages([])
@@ -380,7 +307,6 @@ export default function VehicleAdsPage() {
       } else {
         toast.success('Vehicle ad approved and published!')
         fetchAds()
-        fetchPublishedVehicles()
       }
     } catch (error) {
       console.error('Error:', error)
@@ -410,22 +336,6 @@ export default function VehicleAdsPage() {
       toast.error('An error occurred')
     } finally {
       setProcessingId(null)
-    }
-  }
-
-  const handleDeletePublished = async (vehicleId: string) => {
-    if (!confirm('Are you sure you want to delete this published vehicle?')) return
-
-    try {
-      const { error } = await supabase.from('vehicles').delete().eq('id', vehicleId)
-
-      if (error) throw error
-
-      toast.success('Published vehicle deleted successfully')
-      fetchPublishedVehicles()
-    } catch (error: any) {
-      console.error('Error deleting vehicle:', error)
-      toast.error(error.message || 'Failed to delete vehicle')
     }
   }
 
@@ -477,7 +387,7 @@ export default function VehicleAdsPage() {
       <div className="ml-64 flex-1 p-8 bg-gray-50 min-h-screen">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Vehicle Ad Approvals</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Customer Vehicle Ads</h1>
             <p className="text-gray-600">Review and approve customer vehicle listings</p>
           </div>
 
@@ -515,7 +425,7 @@ export default function VehicleAdsPage() {
 
               return (
                 <div key={status}>
-                  <h2 className="text-xl font-semibold mb-4 capitalize">{status} Ads</h2>
+                  <h2 className="text-xl font-semibold mb-4 capitalize">{status} Customer Ads</h2>
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {statusAds.map((ad) => (
                       <Card key={ad.id} className="overflow-hidden">
@@ -619,65 +529,6 @@ export default function VehicleAdsPage() {
                 </div>
               )
             })}
-
-            {/* Published Vehicles Section */}
-            <div>
-              <h2 className="text-xl font-semibold mb-4">Published Vehicles</h2>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {publishedVehicles.map((vehicle) => (
-                  <Card key={vehicle.id} className="overflow-hidden">
-                    <div className="relative h-48 bg-gray-200">
-                      {vehicle.images?.[0] || vehicle.image_url ? (
-                        <img
-                          src={vehicle.images?.[0] || vehicle.image_url}
-                          alt={vehicle.model}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center h-full">
-                          <Car className="h-16 w-16 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                    <CardHeader>
-                      <CardTitle className="text-lg">{vehicle.model}</CardTitle>
-                      <CardDescription>{vehicle.year} • {vehicle.condition}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <DollarSign className="h-4 w-4 mr-2" />
-                        LKR {vehicle.price.toLocaleString()}
-                      </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Gauge className="h-4 w-4 mr-2" />
-                        {vehicle.mileage.toLocaleString()} km
-                      </div>
-
-                      <div className="flex gap-2 pt-4">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEditPublished(vehicle)}
-                          className="flex-1"
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDeletePublished(vehicle.id)}
-                          className="flex-1"
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Delete
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -761,9 +612,7 @@ export default function VehicleAdsPage() {
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {editingAd ? 'Edit Vehicle Ad' : 'Edit Published Vehicle'}
-            </DialogTitle>
+            <DialogTitle>Edit Customer Vehicle Ad</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -854,17 +703,15 @@ export default function VehicleAdsPage() {
               </div>
             </div>
 
-            {editingAd && (
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={3}
-                />
-              </div>
-            )}
+            <div>
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={3}
+              />
+            </div>
 
             <div>
               <Label htmlFor="features">Features (comma-separated)</Label>
