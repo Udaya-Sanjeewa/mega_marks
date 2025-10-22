@@ -231,7 +231,7 @@ export default function Navbar() {
                 </motion.div>
               </Link>
             )}
-            /* <Link href="/admin/login">
+            {/* <Link href="/admin/login">
               <motion.div
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
@@ -321,7 +321,7 @@ export default function Navbar() {
                 </div>
               </motion.div>
             </Link>
-            <Link href="/admin/login">
+            {/* <Link href="/admin/login">
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -334,7 +334,7 @@ export default function Navbar() {
                   Admin Login
                 </div>
               </motion.div>
-            </Link>
+            </Link> */}
           </div>
         </motion.div>
       )}
