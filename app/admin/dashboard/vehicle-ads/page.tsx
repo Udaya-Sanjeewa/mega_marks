@@ -109,22 +109,46 @@ export default function VehicleAdsPage() {
   const fetchAds = async () => {
     setLoading(true)
     try {
+      console.log('Fetching ads for user:', user?.id)
+
+      const { data: adminCheck } = await supabase
+        .from('admin_users')
+        .select('*')
+        .eq('id', user?.id)
+        .maybeSingle()
+
+      console.log('Admin user check:', adminCheck)
+
+      if (!adminCheck) {
+        console.warn('Current user is not in admin_users table')
+        toast.error('You must be registered as an admin to view vehicle ads. Please contact support.')
+        setLoading(false)
+        return
+      }
+
       const { data, error } = await supabase
         .from('customer_vehicle_ads')
         .select('*')
         .order('created_at', { ascending: false })
 
+      console.log('Vehicle ads query result:', { data, error, count: data?.length })
+
       if (error) {
         console.error('Error fetching ads:', error)
         toast.error(`Failed to load vehicle ads: ${error.message}`)
       } else {
+        console.log(`Found ${data?.length || 0} vehicle ads`)
         const adsWithProfiles = await Promise.all(
           (data || []).map(async (ad) => {
-            const { data: profile } = await supabase
+            const { data: profile, error: profileError } = await supabase
               .from('customer_profiles')
               .select('full_name, email, phone')
               .eq('user_id', ad.user_id)
               .maybeSingle()
+
+            if (profileError) {
+              console.error('Error fetching profile for user:', ad.user_id, profileError)
+            }
 
             return {
               ...ad,
@@ -133,6 +157,7 @@ export default function VehicleAdsPage() {
           })
         )
         setAds(adsWithProfiles)
+        console.log('Successfully loaded ads with profiles')
       }
     } catch (error) {
       console.error('Error:', error)
