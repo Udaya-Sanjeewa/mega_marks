@@ -39,11 +39,12 @@ DROP POLICY IF EXISTS "Admins can view their own data" ON admin_users;
 DROP POLICY IF EXISTS "Admins can update their own data" ON admin_users;
 DROP POLICY IF EXISTS "Super admins can view all admin users" ON admin_users;
 DROP POLICY IF EXISTS "Admins can insert themselves" ON admin_users;
+DROP POLICY IF EXISTS "Allow authenticated users to read admin_users" ON admin_users;
 
-CREATE POLICY "Admins can view their own data"
+CREATE POLICY "Allow authenticated users to read admin_users"
   ON admin_users FOR SELECT
   TO authenticated
-  USING (auth.uid() = id);
+  USING (true);
 
 CREATE POLICY "Admins can update their own data"
   ON admin_users FOR UPDATE
