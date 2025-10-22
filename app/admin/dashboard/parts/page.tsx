@@ -4,35 +4,22 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/lib/supabase'
-import { uploadImage, deleteImage } from '@/lib/storage'
+import { supabase, Part } from '@/lib/supabase'
+import { uploadImage, deleteImage, updateImage } from '@/lib/storage'
 import AdminNav from '@/components/AdminNav'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/hooks/use-toast'
-import { Plus, Edit, Trash2, X, Star } from 'lucide-react'
+import { Plus, Edit, Trash2, Upload, X } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-
-interface Part {
-  id: string
-  name: string
-  category: string
-  price: number
-  description?: string
-  image_url?: string
-  in_stock: boolean
-  compatible_models?: string[]
-  is_featured: boolean
-}
 
 export default function PartsManagement() {
   const { user, loading } = useAuth()
@@ -47,10 +34,11 @@ export default function PartsManagement() {
   const [formData, setFormData] = useState({
     name: '',
     category: '',
-    price: 0,
+    price: '',
     description: '',
     image_url: '',
     in_stock: true,
+    stock_quantity: '',
     compatible_models: '',
     is_featured: false,
   })
@@ -71,8 +59,6 @@ export default function PartsManagement() {
 
     if (!error && data) {
       setParts(data)
-    } else if (error) {
-      console.error('Error fetching parts:', error)
     }
   }
 
@@ -107,67 +93,78 @@ export default function PartsManagement() {
     e.preventDefault()
     setUploading(true)
 
-    try {
-      let imageUrl = formData.image_url
+    let imageUrl = formData.image_url
 
-      if (imageFile) {
-        const uploadedUrl = await uploadImage(imageFile, 'parts')
-        if (uploadedUrl) {
-          imageUrl = uploadedUrl
-        }
+    if (imageFile) {
+      if (editingPart && editingPart.image_url) {
+        imageUrl = await updateImage(editingPart.image_url, imageFile, 'parts') || ''
+      } else {
+        imageUrl = await uploadImage(imageFile, 'parts') || ''
       }
 
-      const compatibleModelsArray = formData.compatible_models
-        ? formData.compatible_models.split(',').map((m) => m.trim()).filter(Boolean)
-        : []
-
-      const partData = {
-        name: formData.name,
-        category: formData.category,
-        price: formData.price,
-        description: formData.description || null,
-        image_url: imageUrl || null,
-        in_stock: formData.in_stock,
-        compatible_models: compatibleModelsArray.length > 0 ? compatibleModelsArray : null,
-        is_featured: formData.is_featured,
+      if (!imageUrl) {
+        toast({
+          title: 'Error',
+          description: 'Failed to upload image',
+          variant: 'destructive',
+        })
+        setUploading(false)
+        return
       }
+    }
 
-      if (editingPart) {
-        const { error } = await supabase
-          .from('parts')
-          .update(partData)
-          .eq('id', editingPart.id)
+    const partData = {
+      name: formData.name,
+      category: formData.category,
+      price: parseFloat(formData.price),
+      description: formData.description,
+      image_url: imageUrl,
+      in_stock: formData.in_stock,
+      stock_quantity: parseInt(formData.stock_quantity),
+      compatible_models: formData.compatible_models ? formData.compatible_models.split(',').map(m => m.trim()) : [],
+      is_featured: formData.is_featured,
+    }
 
-        if (error) throw error
+    if (editingPart) {
+      const { error } = await supabase
+        .from('parts')
+        .update(partData)
+        .eq('id', editingPart.id)
 
+      if (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to update part',
+          variant: 'destructive',
+        })
+      } else {
         toast({
           title: 'Success',
           description: 'Part updated successfully',
         })
+        resetForm()
+        fetchParts()
+      }
+    } else {
+      const { error } = await supabase.from('parts').insert([partData])
+
+      if (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to add part',
+          variant: 'destructive',
+        })
       } else {
-        const { error } = await supabase.from('parts').insert([partData])
-
-        if (error) throw error
-
         toast({
           title: 'Success',
           description: 'Part added successfully',
         })
+        resetForm()
+        fetchParts()
       }
-
-      setIsDialogOpen(false)
-      resetForm()
-      fetchParts()
-    } catch (error: any) {
-      console.error('Error saving part:', error)
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to save part',
-        variant: 'destructive',
-      })
-    } finally {
-      setUploading(false)
     }
+
+    setUploading(false)
   }
 
   const handleEdit = (part: Part) => {
@@ -175,36 +172,42 @@ export default function PartsManagement() {
     setFormData({
       name: part.name,
       category: part.category,
-      price: part.price,
+      price: part.price.toString(),
       description: part.description || '',
       image_url: part.image_url || '',
-      in_stock: part.in_stock !== false,
-      compatible_models: part.compatible_models?.join(', ') || '',
-      is_featured: part.is_featured || false,
+      in_stock: part.in_stock,
+      stock_quantity: part.stock_quantity.toString(),
+      compatible_models: part.compatible_models ? part.compatible_models.join(', ') : '',
+      is_featured: part.is_featured,
     })
-    if (part.image_url) {
-      setImagePreview(part.image_url)
-    }
+    setImagePreview(part.image_url || null)
+    setImageFile(null)
     setIsDialogOpen(true)
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this part?')) return
+    if (confirm('Are you sure you want to delete this part?')) {
+      const part = parts.find(p => p.id === id)
 
-    const { error } = await supabase.from('parts').delete().eq('id', id)
+      if (part?.image_url) {
+        await deleteImage(part.image_url)
+      }
 
-    if (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to delete part',
-        variant: 'destructive',
-      })
-    } else {
-      toast({
-        title: 'Success',
-        description: 'Part deleted successfully',
-      })
-      fetchParts()
+      const { error } = await supabase.from('parts').delete().eq('id', id)
+
+      if (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to delete part',
+          variant: 'destructive',
+        })
+      } else {
+        toast({
+          title: 'Success',
+          description: 'Part deleted successfully',
+        })
+        fetchParts()
+      }
     }
   }
 
@@ -212,232 +215,227 @@ export default function PartsManagement() {
     setFormData({
       name: '',
       category: '',
-      price: 0,
+      price: '',
       description: '',
       image_url: '',
       in_stock: true,
+      stock_quantity: '',
       compatible_models: '',
       is_featured: false,
     })
     setEditingPart(null)
     setImageFile(null)
     setImagePreview(null)
+    setIsDialogOpen(false)
   }
 
-  if (loading) {
-    return <div>Loading...</div>
-  }
-
-  if (!user) {
+  if (loading || !user) {
     return null
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="flex">
       <AdminNav />
-      <div className="container mx-auto px-4 py-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-6"
-        >
-          <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-slate-800">Manage Parts</h1>
+      <div className="ml-64 flex-1 p-8 bg-gray-50 min-h-screen">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Parts</h1>
+              <p className="text-gray-600">Manage spare parts inventory</p>
+            </div>
             <Button
-              onClick={() => {
-                resetForm()
-                setIsDialogOpen(true)
-              }}
-              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => setIsDialogOpen(true)}
+              className="bg-gray-800 hover:bg-gray-900"
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Part
             </Button>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {parts.map((part) => (
-              <Card key={part.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <CardContent className="p-4">
-                  {part.image_url && (
-                    <img
-                      src={part.image_url}
-                      alt={part.name}
-                      className="w-full h-48 object-cover rounded-lg mb-4"
-                    />
-                  )}
-                  <div className="space-y-2">
-                    <div className="flex items-start justify-between">
-                      <h3 className="font-semibold text-lg">{part.name}</h3>
-                      {part.is_featured && (
-                        <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
-                      )}
+              <motion.div
+                key={part.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <Card className="hover:shadow-lg transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1 pr-2">
+                        <h3 className="font-bold text-sm line-clamp-2">{part.name}</h3>
+                        <p className="text-xs text-gray-600">{part.category}</p>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEdit(part)}
+                          className="h-7 w-7 p-0"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDelete(part.id)}
+                          className="h-7 w-7 p-0"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
-                    <p className="text-sm text-slate-600">{part.category}</p>
-                    <p className="text-lg font-bold text-green-600">
-                      ${part.price.toLocaleString()}
+                    <p className="text-lg font-bold text-gray-900 mb-1">
+                      LKR {part.price.toLocaleString()}
                     </p>
-                    <p className="text-sm">
-                      {part.in_stock ? (
-                        <span className="text-green-600">In Stock</span>
-                      ) : (
-                        <span className="text-red-600">Out of Stock</span>
-                      )}
-                    </p>
-                    <div className="flex gap-2 mt-4">
-                      <Button
-                        onClick={() => handleEdit(part)}
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
-                      </Button>
-                      <Button
-                        onClick={() => handleDelete(part.id)}
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Delete
-                      </Button>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className={part.in_stock ? 'text-green-600' : 'text-red-600'}>
+                        {part.in_stock ? `${part.stock_quantity} in stock` : 'Out of Stock'}
+                      </span>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </motion.div>
             ))}
           </div>
-        </motion.div>
-      </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editingPart ? 'Edit Part' : 'Add New Part'}
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="name">Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="category">Category *</Label>
-                <Input
-                  id="category"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="price">Price *</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  step="0.01"
-                  value={formData.price}
-                  onChange={(e) =>
-                    setFormData({ ...formData, price: parseFloat(e.target.value) })
-                  }
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                rows={3}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="compatible_models">Compatible Models (comma-separated)</Label>
-              <Input
-                id="compatible_models"
-                value={formData.compatible_models}
-                onChange={(e) =>
-                  setFormData({ ...formData, compatible_models: e.target.value })
-                }
-                placeholder="e.g., Model 3, Model Y, Model S"
-              />
-            </div>
-
-            <div>
-              <Label>Image</Label>
-              {imagePreview && (
-                <div className="relative w-32 h-32 mb-2">
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="w-full h-full object-cover rounded"
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingPart ? 'Edit Part' : 'Add New Part'}
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="name">Part Name *</Label>
+                  <Input
+                    id="name"
+                    placeholder="e.g., Front Brake Pads"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
                   />
-                  <button
-                    type="button"
-                    onClick={removeImage}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
                 </div>
-              )}
-              <Input type="file" accept="image/*" onChange={handleImageChange} />
-            </div>
-
-            <div className="flex items-center gap-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="in_stock"
-                  checked={formData.in_stock}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, in_stock: checked as boolean })
-                  }
-                />
-                <Label htmlFor="in_stock">In Stock</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="is_featured"
-                  checked={formData.is_featured}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, is_featured: checked as boolean })
-                  }
-                />
-                <Label htmlFor="is_featured">Featured</Label>
-              </div>
-            </div>
-
-            <div className="flex gap-2 justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={uploading}>
-                {uploading ? 'Saving...' : editingPart ? 'Update' : 'Add'}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="category">Category *</Label>
+                    <Input
+                      id="category"
+                      placeholder="e.g., Brakes, Lighting"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="price">Price (LKR) *</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="stock_quantity">Stock Quantity *</Label>
+                  <Input
+                    id="stock_quantity"
+                    type="number"
+                    value={formData.stock_quantity}
+                    onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="compatible_models">Compatible Models (comma-separated)</Label>
+                  <Input
+                    id="compatible_models"
+                    placeholder="e.g., 2018-2023 Models, All Models"
+                    value={formData.compatible_models}
+                    onChange={(e) => setFormData({ ...formData, compatible_models: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="image">Part Image</Label>
+                  <div className="space-y-4">
+                    {imagePreview ? (
+                      <div className="relative">
+                        <img
+                          src={imagePreview}
+                          alt="Preview"
+                          className="w-full h-48 object-cover rounded-lg"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                          onClick={removeImage}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                        <Upload className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                        <p className="text-sm text-gray-600 mb-2">Click to upload or drag and drop</p>
+                        <p className="text-xs text-gray-500">PNG, JPG, WEBP up to 5MB</p>
+                        <Input
+                          id="image"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="mt-4"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="in_stock"
+                    checked={formData.in_stock}
+                    onChange={(e) => setFormData({ ...formData, in_stock: e.target.checked })}
+                    className="rounded"
+                  />
+                  <Label htmlFor="in_stock">In Stock</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="is_featured"
+                    checked={formData.is_featured}
+                    onChange={(e) => setFormData({ ...formData, is_featured: e.target.checked })}
+                    className="rounded"
+                  />
+                  <Label htmlFor="is_featured">Featured on Home Page</Label>
+                </div>
+                <div className="flex gap-2 pt-4">
+                  <Button type="submit" className="flex-1 bg-gray-800 hover:bg-gray-900" disabled={uploading}>
+                    {uploading ? 'Uploading...' : editingPart ? 'Update' : 'Add'} {uploading ? '' : 'Part'}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={resetForm} disabled={uploading}>
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
     </div>
   )
 }

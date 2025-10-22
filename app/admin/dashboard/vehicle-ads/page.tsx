@@ -123,19 +123,21 @@ export default function VehicleAdsPage() {
         year: ad.year,
       })
 
+      const fullModelName = `${ad.make} ${ad.model}`.trim()
+
       const { error: insertError } = await supabase.from('vehicles').insert([
         {
-          make: ad.make,
-          model: ad.model,
+          model: fullModelName,
           year: ad.year,
           price: ad.price,
           mileage: ad.mileage,
           battery_capacity: ad.battery_capacity,
           condition: ad.condition,
           color: ad.color,
-          description: ad.description,
-          features: ad.features,
+          image_url: ad.images?.[0] || null,
           images: ad.images,
+          features: ad.features,
+          available: true,
           is_featured: false,
         },
       ])
