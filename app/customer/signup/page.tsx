@@ -68,6 +68,14 @@ export default function CustomerSignupPage() {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/customer/login`,
+          data: {
+            full_name: formData.fullName,
+            phone: formData.phone,
+            address: formData.address,
+          }
+        }
       })
 
       if (authError) {
@@ -95,18 +103,24 @@ export default function CustomerSignupPage() {
 
         if (profileError) {
           console.error('Profile creation error:', profileError)
+          toast({
+            title: 'Warning',
+            description: 'Account created but profile setup failed. Please contact support.',
+            variant: 'destructive',
+          })
+        } else {
+          toast({
+            title: 'Success',
+            description: 'Account created successfully! You can now sign in.',
+          })
         }
-
-        toast({
-          title: 'Success',
-          description: 'Account created successfully! Please sign in.',
-        })
 
         setTimeout(() => {
           router.replace('/customer/login')
         }, 1500)
       }
     } catch (error) {
+      console.error('Signup error:', error)
       toast({
         title: 'Error',
         description: 'An unexpected error occurred',

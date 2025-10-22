@@ -2,15 +2,27 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { Menu, X, Zap, Shield, Sparkles, User } from 'lucide-react'
+import { Menu, X, Zap, Shield, Sparkles, User, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { motion, useScroll, useTransform } from 'framer-motion'
+import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const { scrollY } = useScroll()
   const backgroundOpacity = useTransform(scrollY, [0, 100], [0.9, 1])
+  const { user, loading } = useAuth()
+  const [customerName, setCustomerName] = useState<string | null>(null)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -19,6 +31,32 @@ export default function Navbar() {
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
+
+  useEffect(() => {
+    const fetchCustomerProfile = async () => {
+      if (user) {
+        const { data } = await supabase
+          .from('customer_profiles')
+          .select('full_name')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (data) {
+          setCustomerName(data.full_name)
+        }
+      } else {
+        setCustomerName(null)
+      }
+    }
+
+    fetchCustomerProfile()
+  }, [user])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    setCustomerName(null)
+    window.location.href = '/'
+  }
 
   const navLinks = [
     { name: 'Home', href: '/' },
@@ -122,34 +160,77 @@ export default function Navbar() {
                 </motion.div>
               </Link>
             ))}
-            <Link href="/customer/login">
-              <motion.div
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: navLinks.length * 0.1 }}
-              >
-                <Button
-                  size="sm"
-                  className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white border-0 shadow-md shadow-blue-500/50 relative overflow-hidden group mr-2"
-                >
+            {!loading && user && customerName ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <motion.div
-                    className="absolute inset-0 bg-gradient-to-r from-cyan-400 to-blue-400 opacity-0 group-hover:opacity-30"
-                    animate={{
-                      x: ['-100%', '100%'],
-                    }}
-                    transition={{
-                      duration: 1.5,
-                      repeat: Infinity,
-                      ease: 'linear',
-                    }}
-                  />
-                  <User className="h-4 w-4 mr-2 relative z-10" />
-                  <span className="relative z-10">Login</span>
-                </Button>
-              </motion.div>
-            </Link>
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: navLinks.length * 0.1 }}
+                  >
+                    <Button
+                      size="sm"
+                      className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white border-0 shadow-md shadow-blue-500/50 relative overflow-hidden group mr-2"
+                    >
+                      <User className="h-4 w-4 mr-2 relative z-10" />
+                      <span className="relative z-10">{customerName}</span>
+                    </Button>
+                  </motion.div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/customer/dashboard" className="cursor-pointer">
+                      <User className="h-4 w-4 mr-2" />
+                      Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/sell-vehicle" className="cursor-pointer">
+                      <Zap className="h-4 w-4 mr-2" />
+                      Post Ad
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link href="/customer/login">
+                <motion.div
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: navLinks.length * 0.1 }}
+                >
+                  <Button
+                    size="sm"
+                    className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white border-0 shadow-md shadow-blue-500/50 relative overflow-hidden group mr-2"
+                  >
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-r from-cyan-400 to-blue-400 opacity-0 group-hover:opacity-30"
+                      animate={{
+                        x: ['-100%', '100%'],
+                      }}
+                      transition={{
+                        duration: 1.5,
+                        repeat: Infinity,
+                        ease: 'linear',
+                      }}
+                    />
+                    <User className="h-4 w-4 mr-2 relative z-10" />
+                    <span className="relative z-10">Login</span>
+                  </Button>
+                </motion.div>
+              </Link>
+            )}
             <Link href="/admin/login">
               <motion.div
                 whileHover={{ scale: 1.05, y: -2 }}

@@ -20,6 +20,7 @@ export default function SellVehiclePage() {
   const { user, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [checkingAuth, setCheckingAuth] = useState(true)
   const [images, setImages] = useState<File[]>([])
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
   const [formData, setFormData] = useState({
@@ -36,13 +37,21 @@ export default function SellVehiclePage() {
   })
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      toast.error('Please login to post a vehicle ad')
-      setTimeout(() => {
-        router.push('/customer/login')
-      }, 1500)
+    const checkAuth = async () => {
+      if (!authLoading) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          toast.error('Please login to post a vehicle ad')
+          setTimeout(() => {
+            router.push('/customer/login')
+          }, 1500)
+        } else {
+          setCheckingAuth(false)
+        }
+      }
     }
-  }, [user, authLoading, router])
+    checkAuth()
+  }, [authLoading, router])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target

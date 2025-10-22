@@ -64,8 +64,20 @@ export default function CustomerDashboard() {
 
     if (error) {
       console.error('Error fetching profile:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to load profile. Please refresh the page.',
+        variant: 'destructive',
+      })
     } else if (data) {
       setProfile(data)
+    } else {
+      console.warn('No profile found for user:', user.id)
+      toast({
+        title: 'Profile Not Found',
+        description: 'Your profile was not created properly. Please contact support.',
+        variant: 'destructive',
+      })
     }
   }
 
