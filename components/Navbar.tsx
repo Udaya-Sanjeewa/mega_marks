@@ -231,7 +231,7 @@ export default function Navbar() {
                 </motion.div>
               </Link>
             )}
-            <Link href="/admin/login">
+            /* <Link href="/admin/login">
               <motion.div
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
@@ -258,7 +258,7 @@ export default function Navbar() {
                   <span className="relative z-10">Admin</span>
                 </Button>
               </motion.div>
-            </Link>
+            </Link> */}
           </div>
 
           <div className="md:hidden">
