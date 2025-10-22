@@ -75,16 +75,21 @@ export default function VehicleAdsPage() {
 
   const fetchAds = async () => {
     setLoading(true)
+    console.log('Admin: Fetching vehicle ads...')
     try {
       const { data, error } = await supabase
         .from('customer_vehicle_ads')
         .select('*')
         .order('created_at', { ascending: false })
 
+      console.log('Admin: Ads query result:', { data, error })
+
       if (error) {
         console.error('Error fetching ads:', error)
-        toast.error('Failed to load vehicle ads')
+        console.error('Error details:', JSON.stringify(error, null, 2))
+        toast.error(`Failed to load vehicle ads: ${error.message}`)
       } else {
+        console.log(`Admin: Found ${data?.length || 0} ads`)
         const adsWithProfiles = await Promise.all(
           (data || []).map(async (ad) => {
             const { data: profile } = await supabase

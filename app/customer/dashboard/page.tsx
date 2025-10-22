@@ -102,7 +102,12 @@ export default function CustomerDashboard() {
   }
 
   const fetchMyAds = async () => {
-    if (!user) return
+    if (!user) {
+      console.log('fetchMyAds: No user found')
+      return
+    }
+
+    console.log('fetchMyAds: Fetching ads for user:', user.id)
 
     const { data, error } = await supabase
       .from('customer_vehicle_ads')
@@ -110,9 +115,13 @@ export default function CustomerDashboard() {
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
+    console.log('fetchMyAds: Query result:', { data, error })
+
     if (error) {
       console.error('Error fetching ads:', error)
+      console.error('Error details:', JSON.stringify(error, null, 2))
     } else {
+      console.log(`fetchMyAds: Found ${data?.length || 0} ads`)
       setMyAds(data || [])
     }
   }
