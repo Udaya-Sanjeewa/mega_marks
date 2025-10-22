@@ -200,7 +200,7 @@ export default function CustomerDashboard() {
           <Button
             onClick={handleLogout}
             variant="outline"
-            className="text-white border-white hover:bg-green-700"
+            className="text-white border-white hover:bg-green-700 hover:text-white hover:border-white"
           >
             <LogOut className="h-4 w-4 mr-2" />
             Logout
