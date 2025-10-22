@@ -4,8 +4,13 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { uploadImage, deleteImage } from '@/lib/storage'
+import AdminNav from '@/components/AdminNav'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import {
@@ -19,6 +24,10 @@ import {
   Battery,
   Loader2,
   Eye,
+  Edit,
+  Trash2,
+  Upload,
+  X,
 } from 'lucide-react'
 import {
   Dialog,
@@ -27,6 +36,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface VehicleAd {
@@ -56,10 +72,30 @@ export default function VehicleAdsPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const [ads, setAds] = useState<VehicleAd[]>([])
+  const [publishedVehicles, setPublishedVehicles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [selectedAd, setSelectedAd] = useState<VehicleAd | null>(null)
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editingAd, setEditingAd] = useState<VehicleAd | null>(null)
+  const [editingPublished, setEditingPublished] = useState<any | null>(null)
+  const [imageFiles, setImageFiles] = useState<File[]>([])
+  const [imagePreviews, setImagePreviews] = useState<string[]>([])
+  const [existingImages, setExistingImages] = useState<string[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [formData, setFormData] = useState({
+    make: '',
+    model: '',
+    year: new Date().getFullYear(),
+    price: 0,
+    mileage: 0,
+    battery_capacity: '',
+    condition: 'Good',
+    color: '',
+    description: '',
+    features: '',
+  })
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -70,26 +106,22 @@ export default function VehicleAdsPage() {
   useEffect(() => {
     if (user) {
       fetchAds()
+      fetchPublishedVehicles()
     }
   }, [user])
 
   const fetchAds = async () => {
     setLoading(true)
-    console.log('Admin: Fetching vehicle ads...')
     try {
       const { data, error } = await supabase
         .from('customer_vehicle_ads')
         .select('*')
         .order('created_at', { ascending: false })
 
-      console.log('Admin: Ads query result:', { data, error })
-
       if (error) {
         console.error('Error fetching ads:', error)
-        console.error('Error details:', JSON.stringify(error, null, 2))
         toast.error(`Failed to load vehicle ads: ${error.message}`)
       } else {
-        console.log(`Admin: Found ${data?.length || 0} ads`)
         const adsWithProfiles = await Promise.all(
           (data || []).map(async (ad) => {
             const { data: profile } = await supabase
@@ -114,15 +146,203 @@ export default function VehicleAdsPage() {
     }
   }
 
+  const fetchPublishedVehicles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (!error && data) {
+        setPublishedVehicles(data)
+      }
+    } catch (error) {
+      console.error('Error fetching published vehicles:', error)
+    }
+  }
+
+  const handleEditAd = (ad: VehicleAd) => {
+    setEditingAd(ad)
+    setEditingPublished(null)
+    setFormData({
+      make: ad.make,
+      model: ad.model,
+      year: ad.year,
+      price: ad.price,
+      mileage: ad.mileage,
+      battery_capacity: ad.battery_capacity,
+      condition: ad.condition,
+      color: ad.color,
+      description: ad.description,
+      features: ad.features?.join(', ') || '',
+    })
+    setExistingImages(ad.images || [])
+    setImageFiles([])
+    setImagePreviews([])
+    setEditDialogOpen(true)
+  }
+
+  const handleEditPublished = (vehicle: any) => {
+    setEditingPublished(vehicle)
+    setEditingAd(null)
+
+    // Parse model name if it contains make
+    const modelParts = vehicle.model.split(' ')
+    const possibleMake = modelParts.length > 1 ? modelParts[0] : ''
+    const modelName = modelParts.length > 1 ? modelParts.slice(1).join(' ') : vehicle.model
+
+    setFormData({
+      make: possibleMake,
+      model: modelName,
+      year: vehicle.year,
+      price: vehicle.price,
+      mileage: vehicle.mileage,
+      battery_capacity: vehicle.battery_capacity,
+      condition: vehicle.condition,
+      color: vehicle.color || '',
+      description: '',
+      features: vehicle.features?.join(', ') || '',
+    })
+    setExistingImages(vehicle.images || (vehicle.image_url ? [vehicle.image_url] : []))
+    setImageFiles([])
+    setImagePreviews([])
+    setEditDialogOpen(true)
+  }
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    const totalImages = existingImages.length + imageFiles.length + files.length
+
+    if (totalImages > 5) {
+      toast.error('Maximum 5 images allowed')
+      return
+    }
+
+    for (const file of files) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Each image must be less than 5MB')
+        return
+      }
+    }
+
+    setImageFiles([...imageFiles, ...files])
+
+    files.forEach((file) => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagePreviews((prev) => [...prev, reader.result as string])
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const removeNewImage = (index: number) => {
+    setImageFiles(imageFiles.filter((_, i) => i !== index))
+    setImagePreviews(imagePreviews.filter((_, i) => i !== index))
+  }
+
+  const removeExistingImage = (index: number) => {
+    setExistingImages(existingImages.filter((_, i) => i !== index))
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingAd && !editingPublished) return
+
+    setUploading(true)
+    try {
+      let uploadedImageUrls: string[] = []
+
+      for (const file of imageFiles) {
+        const url = await uploadImage(file, 'vehicles')
+        if (url) {
+          uploadedImageUrls.push(url)
+        }
+      }
+
+      const allImages = [...existingImages, ...uploadedImageUrls]
+      const featuresArray = formData.features
+        ? formData.features.split(',').map((f) => f.trim()).filter(Boolean)
+        : []
+
+      if (editingAd) {
+        // Update customer ad
+        const { error } = await supabase
+          .from('customer_vehicle_ads')
+          .update({
+            make: formData.make,
+            model: formData.model,
+            year: formData.year,
+            price: formData.price,
+            mileage: formData.mileage,
+            battery_capacity: formData.battery_capacity,
+            condition: formData.condition,
+            color: formData.color,
+            description: formData.description,
+            features: featuresArray,
+            images: allImages,
+          })
+          .eq('id', editingAd.id)
+
+        if (error) throw error
+        toast.success('Vehicle ad updated successfully')
+      } else if (editingPublished) {
+        // Update published vehicle
+        const fullModelName = `${formData.make} ${formData.model}`.trim()
+        const { error } = await supabase
+          .from('vehicles')
+          .update({
+            model: fullModelName,
+            year: formData.year,
+            price: formData.price,
+            mileage: formData.mileage,
+            battery_capacity: formData.battery_capacity,
+            condition: formData.condition,
+            color: formData.color,
+            image_url: allImages[0] || null,
+            images: allImages,
+            features: featuresArray,
+          })
+          .eq('id', editingPublished.id)
+
+        if (error) throw error
+        toast.success('Published vehicle updated successfully')
+      }
+
+      setEditDialogOpen(false)
+      resetEditForm()
+      fetchAds()
+      fetchPublishedVehicles()
+    } catch (error: any) {
+      console.error('Error saving:', error)
+      toast.error(error.message || 'Failed to save changes')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const resetEditForm = () => {
+    setEditingAd(null)
+    setEditingPublished(null)
+    setImageFiles([])
+    setImagePreviews([])
+    setExistingImages([])
+    setFormData({
+      make: '',
+      model: '',
+      year: new Date().getFullYear(),
+      price: 0,
+      mileage: 0,
+      battery_capacity: '',
+      condition: 'Good',
+      color: '',
+      description: '',
+      features: '',
+    })
+  }
+
   const handleApprove = async (ad: VehicleAd) => {
     setProcessingId(ad.id)
     try {
-      console.log('Attempting to insert vehicle into vehicles table:', {
-        make: ad.make,
-        model: ad.model,
-        year: ad.year,
-      })
-
       const fullModelName = `${ad.make} ${ad.model}`.trim()
 
       const { error: insertError } = await supabase.from('vehicles').insert([
@@ -144,13 +364,10 @@ export default function VehicleAdsPage() {
 
       if (insertError) {
         console.error('Error inserting vehicle:', insertError)
-        console.error('Insert error details:', JSON.stringify(insertError, null, 2))
         toast.error(`Failed to create vehicle listing: ${insertError.message}`)
         setProcessingId(null)
         return
       }
-
-      console.log('Vehicle inserted successfully!')
 
       const { error: updateError } = await supabase
         .from('customer_vehicle_ads')
@@ -163,6 +380,7 @@ export default function VehicleAdsPage() {
       } else {
         toast.success('Vehicle ad approved and published!')
         fetchAds()
+        fetchPublishedVehicles()
       }
     } catch (error) {
       console.error('Error:', error)
@@ -192,6 +410,22 @@ export default function VehicleAdsPage() {
       toast.error('An error occurred')
     } finally {
       setProcessingId(null)
+    }
+  }
+
+  const handleDeletePublished = async (vehicleId: string) => {
+    if (!confirm('Are you sure you want to delete this published vehicle?')) return
+
+    try {
+      const { error } = await supabase.from('vehicles').delete().eq('id', vehicleId)
+
+      if (error) throw error
+
+      toast.success('Published vehicle deleted successfully')
+      fetchPublishedVehicles()
+    } catch (error: any) {
+      console.error('Error deleting vehicle:', error)
+      toast.error(error.message || 'Failed to delete vehicle')
     }
   }
 
@@ -238,55 +472,165 @@ export default function VehicleAdsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Vehicle Ad Approvals</h1>
-        <p className="text-gray-600">Review and approve customer vehicle listings</p>
-      </div>
+    <div className="flex">
+      <AdminNav />
+      <div className="ml-64 flex-1 p-8 bg-gray-50 min-h-screen">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Vehicle Ad Approvals</h1>
+            <p className="text-gray-600">Review and approve customer vehicle listings</p>
+          </div>
 
-      <div className="grid gap-6 mb-6 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Pending</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-yellow-600">{filteredAds.pending.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Approved</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-600">{filteredAds.approved.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Rejected</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-red-600">{filteredAds.rejected.length}</div>
-          </CardContent>
-        </Card>
-      </div>
+          <div className="grid gap-6 mb-6 md:grid-cols-3">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-gray-600">Pending</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-yellow-600">{filteredAds.pending.length}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-gray-600">Approved</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-green-600">{filteredAds.approved.length}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-gray-600">Rejected</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-red-600">{filteredAds.rejected.length}</div>
+              </CardContent>
+            </Card>
+          </div>
 
-      <div className="space-y-6">
-        {['pending', 'approved', 'rejected'].map((status) => {
-          const statusAds = filteredAds[status as keyof typeof filteredAds]
-          if (statusAds.length === 0) return null
+          <div className="space-y-6">
+            {['pending', 'approved', 'rejected'].map((status) => {
+              const statusAds = filteredAds[status as keyof typeof filteredAds]
+              if (statusAds.length === 0) return null
 
-          return (
-            <div key={status}>
-              <h2 className="text-xl font-semibold mb-4 capitalize">{status} Ads</h2>
+              return (
+                <div key={status}>
+                  <h2 className="text-xl font-semibold mb-4 capitalize">{status} Ads</h2>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {statusAds.map((ad) => (
+                      <Card key={ad.id} className="overflow-hidden">
+                        <div className="relative h-48 bg-gray-200">
+                          {ad.images && ad.images.length > 0 ? (
+                            <img
+                              src={ad.images[0]}
+                              alt={`${ad.make} ${ad.model}`}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center h-full">
+                              <Car className="h-16 w-16 text-gray-400" />
+                            </div>
+                          )}
+                          <div className="absolute top-2 right-2">{getStatusBadge(ad.status)}</div>
+                        </div>
+                        <CardHeader>
+                          <CardTitle className="text-lg">
+                            {ad.make} {ad.model}
+                          </CardTitle>
+                          <CardDescription>
+                            {ad.customer_profile?.full_name || 'Unknown Customer'}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          <div className="flex items-center text-sm text-gray-600">
+                            <Calendar className="h-4 w-4 mr-2" />
+                            {ad.year}
+                          </div>
+                          <div className="flex items-center text-sm text-gray-600">
+                            <DollarSign className="h-4 w-4 mr-2" />
+                            LKR {ad.price.toLocaleString()}
+                          </div>
+                          <div className="flex items-center text-sm text-gray-600">
+                            <Gauge className="h-4 w-4 mr-2" />
+                            {ad.mileage.toLocaleString()} km
+                          </div>
+                          <div className="flex items-center text-sm text-gray-600">
+                            <Battery className="h-4 w-4 mr-2" />
+                            {ad.battery_capacity}
+                          </div>
+
+                          <div className="flex gap-2 pt-4">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedAd(ad)
+                                setViewDialogOpen(true)
+                              }}
+                              className="flex-1"
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditAd(ad)}
+                              className="flex-1"
+                            >
+                              <Edit className="h-4 w-4 mr-1" />
+                              Edit
+                            </Button>
+                          </div>
+
+                          {ad.status === 'pending' && (
+                            <div className="flex gap-2 pt-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleApprove(ad)}
+                                disabled={processingId === ad.id}
+                                className="flex-1 bg-green-600 hover:bg-green-700"
+                              >
+                                {processingId === ad.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <>
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    Approve
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleReject(ad.id)}
+                                disabled={processingId === ad.id}
+                                className="flex-1"
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                Reject
+                              </Button>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* Published Vehicles Section */}
+            <div>
+              <h2 className="text-xl font-semibold mb-4">Published Vehicles</h2>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {statusAds.map((ad) => (
-                  <Card key={ad.id} className="overflow-hidden">
+                {publishedVehicles.map((vehicle) => (
+                  <Card key={vehicle.id} className="overflow-hidden">
                     <div className="relative h-48 bg-gray-200">
-                      {ad.images && ad.images.length > 0 ? (
+                      {vehicle.images?.[0] || vehicle.image_url ? (
                         <img
-                          src={ad.images[0]}
-                          alt={`${ad.make} ${ad.model}`}
+                          src={vehicle.images?.[0] || vehicle.image_url}
+                          alt={vehicle.model}
                           className="w-full h-full object-cover"
                         />
                       ) : (
@@ -294,185 +638,320 @@ export default function VehicleAdsPage() {
                           <Car className="h-16 w-16 text-gray-400" />
                         </div>
                       )}
-                      <div className="absolute top-2 right-2">{getStatusBadge(ad.status)}</div>
                     </div>
                     <CardHeader>
-                      <CardTitle className="text-lg">
-                        {ad.year} {ad.make} {ad.model}
-                      </CardTitle>
-                      <CardDescription>
-                        {ad.customer_profile?.full_name || 'Unknown Customer'}
-                      </CardDescription>
+                      <CardTitle className="text-lg">{vehicle.model}</CardTitle>
+                      <CardDescription>{vehicle.year} • {vehicle.condition}</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div className="flex items-center text-gray-600">
-                          <DollarSign className="h-4 w-4 mr-1" />
-                          ${ad.price.toLocaleString()}
-                        </div>
-                        <div className="flex items-center text-gray-600">
-                          <Gauge className="h-4 w-4 mr-1" />
-                          {ad.mileage.toLocaleString()} mi
-                        </div>
-                        <div className="flex items-center text-gray-600">
-                          <Battery className="h-4 w-4 mr-1" />
-                          {ad.battery_capacity}
-                        </div>
-                        <div className="flex items-center text-gray-600">
-                          <Calendar className="h-4 w-4 mr-1" />
-                          {new Date(ad.created_at).toLocaleDateString()}
-                        </div>
+                    <CardContent className="space-y-2">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <DollarSign className="h-4 w-4 mr-2" />
+                        LKR {vehicle.price.toLocaleString()}
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Gauge className="h-4 w-4 mr-2" />
+                        {vehicle.mileage.toLocaleString()} km
                       </div>
 
-                      {ad.customer_profile && (
-                        <div className="text-xs text-gray-500 border-t pt-2">
-                          <div>{ad.customer_profile.email}</div>
-                          <div>{ad.customer_profile.phone}</div>
-                        </div>
-                      )}
-
-                      <div className="flex gap-2 pt-2">
+                      <div className="flex gap-2 pt-4">
                         <Button
-                          variant="outline"
                           size="sm"
+                          variant="outline"
+                          onClick={() => handleEditPublished(vehicle)}
                           className="flex-1"
-                          onClick={() => {
-                            setSelectedAd(ad)
-                            setViewDialogOpen(true)
-                          }}
                         >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
                         </Button>
-                        {ad.status === 'pending' && (
-                          <>
-                            <Button
-                              size="sm"
-                              className="flex-1 bg-green-600 hover:bg-green-700"
-                              onClick={() => handleApprove(ad)}
-                              disabled={processingId === ad.id}
-                            >
-                              {processingId === ad.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <>
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Approve
-                                </>
-                              )}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleReject(ad.id)}
-                              disabled={processingId === ad.id}
-                            >
-                              {processingId === ad.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <XCircle className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </>
-                        )}
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeletePublished(vehicle.id)}
+                          className="flex-1"
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
             </div>
-          )
-        })}
+          </div>
+        </div>
       </div>
 
+      {/* View Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>
-              {selectedAd?.year} {selectedAd?.make} {selectedAd?.model}
+              {selectedAd?.make} {selectedAd?.model}
             </DialogTitle>
-            <DialogDescription>Complete vehicle listing details</DialogDescription>
+            <DialogDescription>
+              Submitted by {selectedAd?.customer_profile?.full_name || 'Unknown'}
+            </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[70vh]">
-            {selectedAd && (
+            <div className="space-y-4">
+              {selectedAd?.images && selectedAd.images.length > 0 && (
+                <div className="grid grid-cols-2 gap-2">
+                  {selectedAd.images.map((img, idx) => (
+                    <img
+                      key={idx}
+                      src={img}
+                      alt={`Vehicle ${idx + 1}`}
+                      className="w-full h-48 object-cover rounded-lg"
+                    />
+                  ))}
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Year</Label>
+                  <p className="text-sm">{selectedAd?.year}</p>
+                </div>
+                <div>
+                  <Label>Condition</Label>
+                  <p className="text-sm">{selectedAd?.condition}</p>
+                </div>
+                <div>
+                  <Label>Price</Label>
+                  <p className="text-sm">LKR {selectedAd?.price.toLocaleString()}</p>
+                </div>
+                <div>
+                  <Label>Mileage</Label>
+                  <p className="text-sm">{selectedAd?.mileage.toLocaleString()} km</p>
+                </div>
+                <div>
+                  <Label>Battery Capacity</Label>
+                  <p className="text-sm">{selectedAd?.battery_capacity}</p>
+                </div>
+                <div>
+                  <Label>Color</Label>
+                  <p className="text-sm">{selectedAd?.color}</p>
+                </div>
+              </div>
+              <div>
+                <Label>Description</Label>
+                <p className="text-sm">{selectedAd?.description}</p>
+              </div>
+              <div>
+                <Label>Features</Label>
+                <div className="flex flex-wrap gap-2">
+                  {selectedAd?.features?.map((feature, idx) => (
+                    <Badge key={idx} variant="secondary">
+                      {feature}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <Label>Customer Contact</Label>
+                <p className="text-sm">{selectedAd?.customer_profile?.email}</p>
+                <p className="text-sm">{selectedAd?.customer_profile?.phone}</p>
+              </div>
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingAd ? 'Edit Vehicle Ad' : 'Edit Published Vehicle'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="make">Make *</Label>
+                <Input
+                  id="make"
+                  value={formData.make}
+                  onChange={(e) => setFormData({ ...formData, make: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="model">Model *</Label>
+                <Input
+                  id="model"
+                  value={formData.model}
+                  onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="year">Year *</Label>
+                <Input
+                  id="year"
+                  type="number"
+                  value={formData.year}
+                  onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="mileage">Mileage (km) *</Label>
+                <Input
+                  id="mileage"
+                  type="number"
+                  value={formData.mileage}
+                  onChange={(e) => setFormData({ ...formData, mileage: parseInt(e.target.value) })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="battery_capacity">Battery Capacity *</Label>
+                <Input
+                  id="battery_capacity"
+                  value={formData.battery_capacity}
+                  onChange={(e) => setFormData({ ...formData, battery_capacity: e.target.value })}
+                  placeholder="e.g., 62kWh"
+                />
+              </div>
+              <div>
+                <Label htmlFor="condition">Condition *</Label>
+                <Select
+                  value={formData.condition}
+                  onValueChange={(value) => setFormData({ ...formData, condition: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Excellent">Excellent</SelectItem>
+                    <SelectItem value="Good">Good</SelectItem>
+                    <SelectItem value="Fair">Fair</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="price">Price (LKR) *</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  value={formData.price}
+                  onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="color">Color</Label>
+                <Input
+                  id="color"
+                  value={formData.color}
+                  onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {editingAd && (
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  rows={3}
+                />
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor="features">Features (comma-separated)</Label>
+              <Input
+                id="features"
+                value={formData.features}
+                onChange={(e) => setFormData({ ...formData, features: e.target.value })}
+                placeholder="e.g., Autopilot, Premium Sound, Glass Roof"
+              />
+            </div>
+
+            <div>
+              <Label>Images (Max 5)</Label>
               <div className="space-y-4">
-                {selectedAd.images && selectedAd.images.length > 0 && (
-                  <div className="grid grid-cols-2 gap-2">
-                    {selectedAd.images.map((img, idx) => (
-                      <img
-                        key={idx}
-                        src={img}
-                        alt={`Vehicle ${idx + 1}`}
-                        className="w-full h-48 object-cover rounded-lg"
-                      />
+                {(existingImages.length > 0 || imagePreviews.length > 0) && (
+                  <div className="grid grid-cols-3 gap-3">
+                    {existingImages.map((url, index) => (
+                      <div key={`existing-${index}`} className="relative">
+                        <img
+                          src={url}
+                          alt={`Vehicle ${index + 1}`}
+                          className="w-full h-32 object-cover rounded-lg"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-1 right-1"
+                          onClick={() => removeExistingImage(index)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                    {imagePreviews.map((preview, index) => (
+                      <div key={`preview-${index}`} className="relative">
+                        <img
+                          src={preview}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-32 object-cover rounded-lg"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-1 right-1"
+                          onClick={() => removeNewImage(index)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
                     ))}
                   </div>
                 )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="font-semibold text-sm text-gray-600">Price</h3>
-                    <p className="text-lg font-bold">${selectedAd.price.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-sm text-gray-600">Mileage</h3>
-                    <p className="text-lg">{selectedAd.mileage.toLocaleString()} miles</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-sm text-gray-600">Condition</h3>
-                    <p className="text-lg">{selectedAd.condition}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-sm text-gray-600">Battery Capacity</h3>
-                    <p className="text-lg">{selectedAd.battery_capacity}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-sm text-gray-600">Color</h3>
-                    <p className="text-lg">{selectedAd.color}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-sm text-gray-600">Year</h3>
-                    <p className="text-lg">{selectedAd.year}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-sm text-gray-600 mb-2">Description</h3>
-                  <p className="text-gray-700">{selectedAd.description}</p>
-                </div>
-
-                {selectedAd.features && selectedAd.features.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold text-sm text-gray-600 mb-2">Features</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedAd.features.map((feature, idx) => (
-                        <Badge key={idx} variant="secondary">
-                          {feature}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {selectedAd.customer_profile && (
-                  <div className="border-t pt-4">
-                    <h3 className="font-semibold text-sm text-gray-600 mb-2">Customer Information</h3>
-                    <div className="space-y-1">
-                      <p>
-                        <span className="font-medium">Name:</span> {selectedAd.customer_profile.full_name}
-                      </p>
-                      <p>
-                        <span className="font-medium">Email:</span> {selectedAd.customer_profile.email}
-                      </p>
-                      <p>
-                        <span className="font-medium">Phone:</span> {selectedAd.customer_profile.phone}
-                      </p>
-                    </div>
+                {existingImages.length + imagePreviews.length < 5 && (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                    <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-600 mb-2">
+                      {existingImages.length + imagePreviews.length}/5 images
+                    </p>
+                    <Input type="file" accept="image/*" multiple onChange={handleImageChange} />
                   </div>
                 )}
               </div>
-            )}
-          </ScrollArea>
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button
+                onClick={handleSaveEdit}
+                disabled={uploading}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+              >
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Changes'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEditDialogOpen(false)
+                  resetEditForm()
+                }}
+                disabled={uploading}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
