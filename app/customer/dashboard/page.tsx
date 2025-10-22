@@ -54,7 +54,13 @@ export default function CustomerDashboard() {
   }, [user])
 
   const fetchProfile = async () => {
-    if (!user) return
+    if (!user) {
+      console.log('fetchProfile: No user found')
+      return
+    }
+
+    console.log('fetchProfile: Fetching profile for user:', user.id)
+    console.log('fetchProfile: User email:', user.email)
 
     const { data, error } = await supabase
       .from('customer_profiles')
@@ -62,20 +68,34 @@ export default function CustomerDashboard() {
       .eq('user_id', user.id)
       .maybeSingle()
 
+    console.log('fetchProfile: Response data:', data)
+    console.log('fetchProfile: Response error:', error)
+
     if (error) {
       console.error('Error fetching profile:', error)
+      console.error('Error details:', JSON.stringify(error, null, 2))
       toast({
         title: 'Error',
-        description: 'Failed to load profile. Please refresh the page.',
+        description: `Failed to load profile: ${error.message}`,
         variant: 'destructive',
       })
     } else if (data) {
+      console.log('fetchProfile: Profile loaded successfully:', data)
       setProfile(data)
     } else {
       console.warn('No profile found for user:', user.id)
+
+      const { data: allProfiles, error: listError } = await supabase
+        .from('customer_profiles')
+        .select('user_id')
+        .limit(5)
+
+      console.log('Available profiles (first 5 user_ids):', allProfiles)
+      console.log('List error:', listError)
+
       toast({
         title: 'Profile Not Found',
-        description: 'Your profile was not created properly. Please contact support.',
+        description: 'Your profile was not created properly. User ID: ' + user.id.substring(0, 8) + '...',
         variant: 'destructive',
       })
     }
