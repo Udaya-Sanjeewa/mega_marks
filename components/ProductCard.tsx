@@ -92,11 +92,11 @@ export default function ProductCard({
             </div>
           )}
           {shareUrl && (
-            <div className="absolute top-2 left-2">
+            <div className="absolute top-3 left-3 z-10">
               <Button
                 size="icon"
                 variant="secondary"
-                className="h-8 w-8 bg-white/90 hover:bg-white"
+                className="h-9 w-9 bg-white/90 hover:bg-white shadow-md"
                 onClick={handleShare}
               >
                 <Share2 className="h-4 w-4" />
