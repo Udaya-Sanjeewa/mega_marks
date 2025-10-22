@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import AdminNav from '@/components/AdminNav'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Battery, Car, Wrench, TrendingUp, FileText } from 'lucide-react'
+import { Battery, Car, Wrench, TrendingUp, FileText, Clock } from 'lucide-react'
 
 export default function AdminDashboard() {
   const { user, loading } = useAuth()
@@ -17,6 +17,7 @@ export default function AdminDashboard() {
     vehicles: 0,
     parts: 0,
     reviews: 0,
+    pendingAds: 0,
   })
 
   useEffect(() => {
@@ -32,11 +33,12 @@ export default function AdminDashboard() {
   }, [user])
 
   const fetchStats = async () => {
-    const [batteries, vehicles, parts, reviews] = await Promise.all([
+    const [batteries, vehicles, parts, reviews, pendingAds] = await Promise.all([
       supabase.from('batteries').select('*', { count: 'exact', head: true }),
       supabase.from('vehicles').select('*', { count: 'exact', head: true }),
       supabase.from('parts').select('*', { count: 'exact', head: true }),
       supabase.from('home_reviews').select('*', { count: 'exact', head: true }),
+      supabase.from('customer_vehicle_ads').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
     ])
 
     setStats({
@@ -44,6 +46,7 @@ export default function AdminDashboard() {
       vehicles: vehicles.count || 0,
       parts: parts.count || 0,
       reviews: reviews.count || 0,
+      pendingAds: pendingAds.count || 0,
     })
   }
 
@@ -78,11 +81,11 @@ export default function AdminDashboard() {
       href: '/admin/dashboard/parts',
     },
     {
-      title: 'Total Reviews',
-      value: stats.reviews,
-      icon: FileText,
+      title: 'Pending Ads',
+      value: stats.pendingAds,
+      icon: Clock,
       color: 'bg-orange-600',
-      href: '/admin/dashboard/reviews',
+      href: '/admin/dashboard/vehicle-ads',
     },
   ]
 
@@ -133,7 +136,7 @@ export default function AdminDashboard() {
                 { title: 'Manage Batteries', icon: Battery, href: '/admin/dashboard/batteries', color: 'bg-green-600' },
                 { title: 'Manage Vehicles', icon: Car, href: '/admin/dashboard/vehicles', color: 'bg-blue-600' },
                 { title: 'Manage Parts', icon: Wrench, href: '/admin/dashboard/parts', color: 'bg-gray-700' },
-                { title: 'Manage Reviews', icon: FileText, href: '/admin/dashboard/reviews', color: 'bg-orange-600' },
+                { title: 'Approve Vehicle Ads', icon: Clock, href: '/admin/dashboard/vehicle-ads', color: 'bg-orange-600' },
               ].map((item, index) => {
                 const Icon = item.icon
                 return (

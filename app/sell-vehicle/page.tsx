@@ -1,28 +1,29 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Car, Upload, X, CheckCircle2, Loader2 } from 'lucide-react'
+import { Car, Upload, X, CheckCircle2, Loader2, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
+import Link from 'next/link'
 
 export default function SellVehiclePage() {
   const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [images, setImages] = useState<File[]>([])
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
   const [formData, setFormData] = useState({
-    owner_name: '',
-    owner_email: '',
-    owner_phone: '',
+    make: '',
     model: '',
     year: new Date().getFullYear(),
     battery_capacity: '',
@@ -33,6 +34,15 @@ export default function SellVehiclePage() {
     description: '',
     features: ''
   })
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      toast.error('Please login to post a vehicle ad')
+      setTimeout(() => {
+        router.push('/customer/login')
+      }, 1500)
+    }
+  }, [user, authLoading, router])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -92,6 +102,13 @@ export default function SellVehiclePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!user) {
+      toast.error('Please login to post a vehicle ad')
+      router.push('/customer/login')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -107,11 +124,10 @@ export default function SellVehiclePage() {
         .map(f => f.trim())
 
       const { error } = await supabase
-        .from('vehicle_listings')
+        .from('customer_vehicle_ads')
         .insert({
-          owner_name: formData.owner_name,
-          owner_email: formData.owner_email,
-          owner_phone: formData.owner_phone,
+          user_id: user.id,
+          make: formData.make,
           model: formData.model,
           year: parseInt(formData.year.toString()),
           battery_capacity: formData.battery_capacity,
@@ -132,7 +148,7 @@ export default function SellVehiclePage() {
       }
 
       setSubmitted(true)
-      toast.success('Your vehicle listing has been submitted!')
+      toast.success('Your vehicle ad has been submitted for approval!')
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -156,41 +172,23 @@ export default function SellVehiclePage() {
                   <CheckCircle2 className="h-12 w-12 text-green-600" />
                 </div>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Submission Received!</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Ad Submitted!</h2>
               <p className="text-gray-600 mb-6">
-                Thank you for submitting your vehicle listing. Our team will review it and get back to you within 24-48 hours.
+                Your vehicle ad has been submitted for review. Our team will review it and notify you once it's approved.
               </p>
               <div className="space-y-3">
                 <Button
-                  onClick={() => router.push('/vehicles')}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  onClick={() => router.push('/customer/dashboard')}
+                  className="w-full bg-green-600 hover:bg-green-700"
                 >
-                  Browse Vehicles
+                  Go to Dashboard
                 </Button>
                 <Button
-                  onClick={() => {
-                    setSubmitted(false)
-                    setFormData({
-                      owner_name: '',
-                      owner_email: '',
-                      owner_phone: '',
-                      model: '',
-                      year: new Date().getFullYear(),
-                      battery_capacity: '',
-                      condition: 'Good',
-                      mileage: 0,
-                      price: 0,
-                      color: '',
-                      description: '',
-                      features: ''
-                    })
-                    setImages([])
-                    setImagePreviews([])
-                  }}
+                  onClick={() => router.push('/vehicles')}
                   variant="outline"
                   className="w-full"
                 >
-                  Submit Another Listing
+                  Browse Vehicles
                 </Button>
               </div>
             </CardContent>
@@ -233,49 +231,19 @@ export default function SellVehiclePage() {
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Contact Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="owner_name">Your Name *</Label>
-                        <Input
-                          id="owner_name"
-                          name="owner_name"
-                          value={formData.owner_name}
-                          onChange={handleInputChange}
-                          required
-                          placeholder="John Doe"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="owner_email">Email Address *</Label>
-                        <Input
-                          id="owner_email"
-                          name="owner_email"
-                          type="email"
-                          value={formData.owner_email}
-                          onChange={handleInputChange}
-                          required
-                          placeholder="john@example.com"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="owner_phone">Phone Number *</Label>
-                        <Input
-                          id="owner_phone"
-                          name="owner_phone"
-                          type="tel"
-                          value={formData.owner_phone}
-                          onChange={handleInputChange}
-                          required
-                          placeholder="+94 77 123 4567"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-6 space-y-4">
                     <h3 className="text-lg font-semibold text-gray-900">Vehicle Details</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="make">Make *</Label>
+                        <Input
+                          id="make"
+                          name="make"
+                          value={formData.make}
+                          onChange={handleInputChange}
+                          required
+                          placeholder="Nissan"
+                        />
+                      </div>
                       <div>
                         <Label htmlFor="model">Model *</Label>
                         <Input
@@ -284,7 +252,7 @@ export default function SellVehiclePage() {
                           value={formData.model}
                           onChange={handleInputChange}
                           required
-                          placeholder="Nissan Leaf S"
+                          placeholder="Leaf S"
                         />
                       </div>
                       <div>
