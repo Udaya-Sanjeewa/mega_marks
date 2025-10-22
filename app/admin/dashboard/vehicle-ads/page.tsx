@@ -117,6 +117,12 @@ export default function VehicleAdsPage() {
   const handleApprove = async (ad: VehicleAd) => {
     setProcessingId(ad.id)
     try {
+      console.log('Attempting to insert vehicle into vehicles table:', {
+        make: ad.make,
+        model: ad.model,
+        year: ad.year,
+      })
+
       const { error: insertError } = await supabase.from('vehicles').insert([
         {
           make: ad.make,
@@ -136,10 +142,13 @@ export default function VehicleAdsPage() {
 
       if (insertError) {
         console.error('Error inserting vehicle:', insertError)
-        toast.error('Failed to create vehicle listing')
+        console.error('Insert error details:', JSON.stringify(insertError, null, 2))
+        toast.error(`Failed to create vehicle listing: ${insertError.message}`)
         setProcessingId(null)
         return
       }
+
+      console.log('Vehicle inserted successfully!')
 
       const { error: updateError } = await supabase
         .from('customer_vehicle_ads')
