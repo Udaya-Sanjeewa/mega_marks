@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
 import { Shield, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -31,7 +32,7 @@ export default function AdminLoginPage() {
     setLoading(true)
 
     try {
-      const { error } = await signIn(email, password)
+      const { error, data } = await signIn(email, password)
 
       if (error) {
         toast({
@@ -40,7 +41,33 @@ export default function AdminLoginPage() {
           variant: 'destructive',
         })
         setLoading(false)
-      } else {
+      } else if (data?.user) {
+        const userId = data.user.id
+
+        const { data: adminUser, error: checkError } = await supabase
+          .from('admin_users')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle()
+
+        if (!adminUser && !checkError) {
+          const { error: insertError } = await supabase
+            .from('admin_users')
+            .insert([
+              {
+                id: userId,
+                email: email,
+                full_name: email.split('@')[0],
+                role: 'admin',
+                is_active: true,
+              }
+            ])
+
+          if (insertError) {
+            console.error('Error creating admin user record:', insertError)
+          }
+        }
+
         toast({
           title: 'Success',
           description: 'Logged in successfully',
