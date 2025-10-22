@@ -469,56 +469,73 @@ export default function VehicleAdsPage() {
                             {ad.battery_capacity}
                           </div>
 
-                          <div className="flex gap-2 pt-4">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedAd(ad)
-                                setViewDialogOpen(true)
-                              }}
-                              className="flex-1"
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleEditAd(ad)}
-                              className="flex-1"
-                            >
-                              <Edit className="h-4 w-4 mr-1" />
-                              Edit
-                            </Button>
-                          </div>
+                          {ad.status === 'pending' ? (
+                            <>
+                              <div className="flex gap-2 pt-4">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedAd(ad)
+                                    setViewDialogOpen(true)
+                                  }}
+                                  className="flex-1"
+                                >
+                                  <Eye className="h-4 w-4 mr-1" />
+                                  View
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleEditAd(ad)}
+                                  className="flex-1"
+                                >
+                                  <Edit className="h-4 w-4 mr-1" />
+                                  Edit
+                                </Button>
+                              </div>
 
-                          {ad.status === 'pending' && (
-                            <div className="flex gap-2 pt-2">
+                              <div className="flex gap-2 pt-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleApprove(ad)}
+                                  disabled={processingId === ad.id}
+                                  className="flex-1 bg-green-600 hover:bg-green-700"
+                                >
+                                  {processingId === ad.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <CheckCircle className="h-4 w-4 mr-1" />
+                                      Approve
+                                    </>
+                                  )}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => handleReject(ad.id)}
+                                  disabled={processingId === ad.id}
+                                  className="flex-1"
+                                >
+                                  <XCircle className="h-4 w-4 mr-1" />
+                                  Reject
+                                </Button>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="pt-4">
                               <Button
                                 size="sm"
-                                onClick={() => handleApprove(ad)}
-                                disabled={processingId === ad.id}
-                                className="flex-1 bg-green-600 hover:bg-green-700"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedAd(ad)
+                                  setViewDialogOpen(true)
+                                }}
+                                className="w-full"
                               >
-                                {processingId === ad.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <>
-                                    <CheckCircle className="h-4 w-4 mr-1" />
-                                    Approve
-                                  </>
-                                )}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleReject(ad.id)}
-                                disabled={processingId === ad.id}
-                                className="flex-1"
-                              >
-                                <XCircle className="h-4 w-4 mr-1" />
-                                Reject
+                                <Eye className="h-4 w-4 mr-1" />
+                                View Details
                               </Button>
                             </div>
                           )}
