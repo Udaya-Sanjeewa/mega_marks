@@ -306,6 +306,7 @@ export default function VehicleAdsPage() {
           battery_capacity: ad.battery_capacity,
           condition: ad.condition,
           color: ad.color,
+          description: ad.description,
           image_url: ad.images?.[0] || null,
           images: ad.images,
           features: ad.features,
