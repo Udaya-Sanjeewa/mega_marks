@@ -30,6 +30,7 @@ export type Vehicle = {
   mileage: number
   price: number
   color: string | null
+  description: string | null
   image_url: string | null
   images: string[] | null
   features: string[] | null

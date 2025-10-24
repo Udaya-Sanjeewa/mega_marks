@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { Plus, Edit, Trash2, Upload, X, CheckCircle, XCircle } from 'lucide-react'
 import {
@@ -46,6 +47,7 @@ export default function VehiclesManagement() {
     mileage: '',
     price: '',
     color: '',
+    description: '',
     features: '',
     available: true,
     is_featured: false,
@@ -147,6 +149,7 @@ export default function VehiclesManagement() {
       mileage: parseInt(formData.mileage),
       price: parseFloat(formData.price),
       color: formData.color,
+      description: formData.description,
       image_url: mainImage,
       images: allImages,
       features: formData.features ? formData.features.split(',').map(f => f.trim()) : [],
@@ -206,6 +209,7 @@ export default function VehiclesManagement() {
       mileage: vehicle.mileage.toString(),
       price: vehicle.price.toString(),
       color: vehicle.color || '',
+      description: vehicle.description || '',
       features: vehicle.features ? vehicle.features.join(', ') : '',
       available: vehicle.available,
       is_featured: vehicle.is_featured,
@@ -272,6 +276,7 @@ export default function VehiclesManagement() {
       mileage: '',
       price: '',
       color: '',
+      description: '',
       features: '',
       available: true,
       is_featured: false,
@@ -459,6 +464,16 @@ export default function VehiclesManagement() {
                       onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                     />
                   </div>
+                </div>
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    placeholder="Enter a detailed description of the vehicle..."
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows={4}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="features">Features (comma-separated)</Label>

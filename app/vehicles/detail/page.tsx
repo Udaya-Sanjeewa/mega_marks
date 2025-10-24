@@ -176,6 +176,15 @@ export default function VehicleDetailPage() {
                   </p>
                 </div>
 
+                {vehicle.description && (
+                  <Card>
+                    <CardContent className="p-6">
+                      <h2 className="text-xl font-bold text-gray-900 mb-4">Description</h2>
+                      <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{vehicle.description}</p>
+                    </CardContent>
+                  </Card>
+                )}
+
                 <Card>
                   <CardContent className="p-6">
                     <h2 className="text-xl font-bold text-gray-900 mb-4">Specifications</h2>
