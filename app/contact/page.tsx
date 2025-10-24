@@ -52,13 +52,13 @@ export default function ContactPage() {
     {
       icon: MapPin,
       title: 'Address',
-      content: '123 EV Boulevard, Colombo 05, Sri Lanka',
+      content: 'Kuliyapitiya Road, Narammala',
       color: 'text-green-600'
     },
     {
       icon: Phone,
       title: 'Phone',
-      content: '+94 77 123 4567',
+      content: '+94 77 535 2759',
       color: 'text-blue-600'
     },
     {
