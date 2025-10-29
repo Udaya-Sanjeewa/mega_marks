@@ -4,11 +4,20 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
+import Head from 'next/head'
 import { supabase, Vehicle } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Car, Gauge, Battery, Calendar, CheckCircle2, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
+
+interface SEOSettings {
+  meta_title: string
+  meta_description: string
+  meta_keywords: string
+  og_title: string
+  og_description: string
+}
 
 export default function VehicleDetailPage() {
   const router = useRouter()
@@ -18,28 +27,98 @@ export default function VehicleDetailPage() {
   const [vehicle, setVehicle] = useState<Vehicle | null>(null)
   const [loading, setLoading] = useState(true)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [seoSettings, setSeoSettings] = useState<SEOSettings | null>(null)
 
   useEffect(() => {
-    async function fetchVehicle() {
+    async function fetchData() {
       if (!vehicleId) return
 
-      const { data, error } = await supabase
-        .from('vehicles')
-        .select('*')
-        .eq('id', vehicleId)
-        .maybeSingle()
+      const [vehicleResponse, seoResponse] = await Promise.all([
+        supabase.from('vehicles').select('*').eq('id', vehicleId).maybeSingle(),
+        supabase.from('seo_settings').select('*').eq('page_type', 'vehicles').maybeSingle()
+      ])
 
-      if (error) {
-        console.error('Error fetching vehicle:', error)
-      } else if (data) {
-        setVehicle(data)
+      if (vehicleResponse.error) {
+        console.error('Error fetching vehicle:', vehicleResponse.error)
+      } else if (vehicleResponse.data) {
+        setVehicle(vehicleResponse.data)
+      }
+
+      if (seoResponse.data) {
+        setSeoSettings(seoResponse.data)
       }
 
       setLoading(false)
     }
 
-    fetchVehicle()
+    fetchData()
   }, [vehicleId])
+
+  useEffect(() => {
+    if (vehicle && seoSettings) {
+      const pageTitle = `${vehicle.model} ${vehicle.year} | ${seoSettings.meta_title}`
+      const pageDescription = vehicle.description
+        ? `${vehicle.description.substring(0, 150)}...`
+        : seoSettings.meta_description
+
+      document.title = pageTitle
+
+      const metaDescription = document.querySelector('meta[name="description"]')
+      if (metaDescription) {
+        metaDescription.setAttribute('content', pageDescription)
+      } else {
+        const meta = document.createElement('meta')
+        meta.name = 'description'
+        meta.content = pageDescription
+        document.head.appendChild(meta)
+      }
+
+      const metaKeywords = document.querySelector('meta[name="keywords"]')
+      if (metaKeywords) {
+        metaKeywords.setAttribute('content', seoSettings.meta_keywords)
+      } else {
+        const meta = document.createElement('meta')
+        meta.name = 'keywords'
+        meta.content = seoSettings.meta_keywords
+        document.head.appendChild(meta)
+      }
+
+      const ogTitle = document.querySelector('meta[property="og:title"]')
+      if (ogTitle) {
+        ogTitle.setAttribute('content', pageTitle)
+      } else {
+        const meta = document.createElement('meta')
+        meta.setAttribute('property', 'og:title')
+        meta.content = pageTitle
+        document.head.appendChild(meta)
+      }
+
+      const ogDescription = document.querySelector('meta[property="og:description"]')
+      if (ogDescription) {
+        ogDescription.setAttribute('content', pageDescription)
+      } else {
+        const meta = document.createElement('meta')
+        meta.setAttribute('property', 'og:description')
+        meta.content = pageDescription
+        document.head.appendChild(meta)
+      }
+
+      if (vehicle.image_url || vehicle.images?.[0]) {
+        const imageUrl = vehicle.image_url || vehicle.images?.[0] || ''
+        if (imageUrl) {
+          const ogImage = document.querySelector('meta[property="og:image"]')
+          if (ogImage) {
+            ogImage.setAttribute('content', imageUrl)
+          } else {
+            const meta = document.createElement('meta')
+            meta.setAttribute('property', 'og:image')
+            meta.content = imageUrl
+            document.head.appendChild(meta)
+          }
+        }
+      }
+    }
+  }, [vehicle, seoSettings])
 
   if (loading) {
     return (
